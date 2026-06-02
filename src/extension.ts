@@ -1,26 +1,52 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { ConfigManager } from './config';
+import { Installer } from './installer';
+import { StatusBarManager } from './statusBar';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+// This method is called when the extension activates
+// (on .http file open or workspace containing .http files).
 export function activate(context: vscode.ExtensionContext) {
+	console.log('Gopher-Glide extension activated (triggered by .http file or workspace).');
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "gopher-glide" is now active!');
+	// 1. Boot config manager — registers gg.selectBinaryPath & gg.checkForUpdates commands.
+	const configMgr = ConfigManager.create(context);
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('gopher-glide.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from Gopher-Glide!');
-	});
+	// 2. Boot status bar — shows a spinner immediately, updates after install resolves.
+	const statusBar = new StatusBarManager(configMgr);
+	context.subscriptions.push(statusBar);
 
-	context.subscriptions.push(disposable);
+	// 3. Boot installer — plugs real logic into the checkForUpdates command stub.
+	const installer = new Installer(context, configMgr);
+	context.subscriptions.push(installer);
+
+	// 4. Ensure the binary is present / up-to-date, then refresh the status bar.
+	//    Fire-and-forget so activation is never blocked.
+	const runInstallCycle = () => {
+		statusBar.setLoading();
+		installer
+			.ensureInstalled()
+			.then(() => statusBar.refresh())
+			.catch((err: unknown) => {
+				console.error('[Gopher-Glide] ensureInstalled error:', err);
+				void statusBar.refresh(); // still try to show real state
+			});
+	};
+
+	runInstallCycle();
+
+	// 5. Re-run the cycle when settings that affect binary resolution change.
+	context.subscriptions.push(
+		configMgr.onDidChangeConfig(({ changedKeys }) => {
+			if (
+				changedKeys.includes('binaryPath') ||
+				changedKeys.includes('installationMode')
+			) {
+				runInstallCycle();
+			}
+		}),
+	);
+
 }
 
-// This method is called when your extension is deactivated
+// This method is called when the extension is deactivated.
 export function deactivate() {}

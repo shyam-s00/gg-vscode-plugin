@@ -9,15 +9,60 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:http",
+    "workspaceContains:**/*.http"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "gopher-glide.helloWorld",
-        "title": "Hello World"
+        "command": "gg.selectBinaryPath",
+        "category": "Gopher-Glide",
+        "title": "Select Binary Path"
+      },
+      {
+        "command": "gg.checkForUpdates",
+        "category": "Gopher-Glide",
+        "title": "Check for Updates"
+      },
+      {
+        "command": "gg.openSettings",
+        "category": "Gopher-Glide",
+        "title": "Open Settings"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Gopher-Glide",
+      "properties": {
+        "gg.binaryPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Absolute path to the `gg` binary. Leave empty to use the auto-managed binary stored in the extension's global storage (or the binary found on `$PATH`)."
+        },
+        "gg.autoUpdateCheck": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically check for a newer version of the gg CLI on extension activation."
+        },
+        "gg.installationMode": {
+          "type": "string",
+          "enum": ["auto", "manual", "pathOnly"],
+          "enumDescriptions": [
+            "Automatically download and install the gg binary when it is missing or outdated.",
+            "Prompt the user before downloading or updating the gg binary.",
+            "Never download the binary; only use what is found on $PATH or set via gg.binaryPath."
+          ],
+          "default": "auto",
+          "description": "Controls how the extension manages the gg CLI binary."
+        },
+        "gg.defaultProfile": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Default simulation profile to pre-select in the Quick Pick (e.g. `flash-sale`, `soak-test`). Leave empty to always prompt."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",
