@@ -16,6 +16,9 @@ const GITHUB_OWNER = 'shyam-s00';
 const GITHUB_REPO  = 'gopher-glide';
 const BINARY_NAME  = 'gg';
 
+/** globalState key for the "don't ask again about a missing binary" preference. */
+const DONT_ASK_MISSING_BINARY_KEY = 'gg.dontAskForMissingBinary';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -201,7 +204,7 @@ export class Installer implements vscode.Disposable {
   private readonly _storageBinPath: string;
 
   constructor(
-    context: vscode.ExtensionContext,
+    private readonly context: vscode.ExtensionContext,
     private readonly configMgr: ConfigManager,
   ) {
     this._platform = detectPlatform();
@@ -224,24 +227,29 @@ export class Installer implements vscode.Disposable {
    * Entry point called on extension activation.
    *
    * Flow:
-   *  1. If `installationMode` is 'pathOnly' → do nothing.
-   *  2. Try the effective binary path (setting → $GG_PATH → 'gg' on $PATH).
-   *  3. If unreachable → download & install.
-   *  4. Else if `autoUpdateCheck` is enabled → compare versions silently.
+   *  1. Try the effective binary path (setting → $GG_PATH → 'gg' on $PATH).
+   *  2. If unreachable:
+   *     - 'auto' mode → download & install silently.
+   *     - 'manual' / 'pathOnly' mode → nudge via `_notifyBinaryMissing()`
+   *       instead of acting automatically (status bar alone is easy to miss).
+   *  3. Else if `autoUpdateCheck` is enabled → compare versions silently.
    */
   async ensureInstalled(): Promise<void> {
     const { installationMode, autoUpdateCheck } = this.configMgr.config;
-
-    if (installationMode === 'pathOnly') {
-      return;
-    }
 
     const effective = this.configMgr.effectiveBinaryPath;
     const available = await this._isBinaryAvailable(effective);
 
     if (!available) {
-      await this._install({ reason: 'missing' });
-    } else if (autoUpdateCheck) {
+      if (installationMode === 'auto') {
+        await this._performInstall();
+      } else {
+        await this._notifyBinaryMissing();
+      }
+      return;
+    }
+
+    if (autoUpdateCheck) {
       await this.checkForUpdates({ silent: true });
     }
   }
@@ -326,6 +334,11 @@ export class Installer implements vscode.Disposable {
    * Orchestrates the download/install flow respecting `installationMode`.
    * If `release` is already known (e.g. from a previous API call) it is
    * reused to avoid a second round trip.
+   *
+   * This gate is only used by command-initiated flows (e.g. the user
+   * clicking "Check for Updates"). The activation-time "missing binary"
+   * path goes through `_notifyBinaryMissing()` instead, which has its own
+   * confirmation built into the notification itself.
    */
   private async _install({
     reason,
@@ -352,6 +365,38 @@ export class Installer implements vscode.Disposable {
       }
     }
 
+    await this._performInstall(release);
+  }
+
+  /**
+   * Shown on activation when the binary is unresolved and `installationMode`
+   * is 'manual' or 'pathOnly' (so `ensureInstalled()` won't act on its own).
+   * Mirrors the JetBrains plugin's `notifyBinaryMissing` — gives the user an
+   * explicit nudge instead of relying solely on the status bar item.
+   */
+  private async _notifyBinaryMissing(): Promise<void> {
+    if (this.context.globalState.get<boolean>(DONT_ASK_MISSING_BINARY_KEY, false)) {
+      return;
+    }
+
+    const choice = await vscode.window.showWarningMessage(
+      'Gopher-Glide: gg binary not found. Download it now, or point the extension at an existing install.',
+      'Download Now',
+      'Set Custom Path…',
+      "Don't ask again",
+    );
+
+    if (choice === 'Download Now') {
+      await this._performInstall();
+    } else if (choice === 'Set Custom Path…') {
+      await vscode.commands.executeCommand('gg.selectBinaryPath');
+    } else if (choice === "Don't ask again") {
+      await this.context.globalState.update(DONT_ASK_MISSING_BINARY_KEY, true);
+    }
+  }
+
+  /** Downloads, extracts, and activates the latest (or given) release. No confirmation gate — callers decide when to ask. */
+  private async _performInstall(release?: GitHubRelease): Promise<void> {
     try {
       const resolvedRelease = release ?? await fetchLatestRelease();
       const expectedName = assetName(this._platform, resolvedRelease.tag_name);

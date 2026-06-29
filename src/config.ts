@@ -17,6 +17,10 @@ export interface GgConfig {
   installationMode: InstallationMode;
   /** Profile to pre-select in Quick Pick, or '' to always prompt. */
   defaultProfile: string;
+  /** Override directory for gg snapshot storage (passed as --snap-dir), or '' for gg's platform default. */
+  snapshotsDir: string;
+  /** Heartbeat cadence in seconds for headless runs (--heartbeat-interval), or 0 to use gg's own default (5s). */
+  heartbeatIntervalSeconds: number;
 }
 
 /** Payload delivered to every onDidChangeConfig listener. */
@@ -41,6 +45,8 @@ function readConfig(scope?: vscode.Uri): GgConfig {
     autoUpdateCheck: c.get<boolean>('autoUpdateCheck', true),
     installationMode: c.get<InstallationMode>('installationMode', 'auto'),
     defaultProfile: c.get<string>('defaultProfile', '').trim(),
+    snapshotsDir: c.get<string>('snapshotsDir', '').trim(),
+    heartbeatIntervalSeconds: c.get<number>('heartbeatIntervalSeconds', 0),
   };
 }
 
