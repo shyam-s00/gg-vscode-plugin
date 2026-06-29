@@ -18,17 +18,17 @@
     "commands": [
       {
         "command": "gg.selectBinaryPath",
-        "category": "Gopher-Glide",
+        "category": "gg",
         "title": "Select Binary Path"
       },
       {
         "command": "gg.checkForUpdates",
-        "category": "Gopher-Glide",
-        "title": "Check for Updates"
+        "category": "gg",
+        "title": "Check for Updates / Install"
       },
       {
         "command": "gg.openSettings",
-        "category": "Gopher-Glide",
+        "category": "gg",
         "title": "Open Settings"
       }
     ],
@@ -60,6 +60,17 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Default simulation profile to pre-select in the Quick Pick (e.g. `flash-sale`, `soak-test`). Leave empty to always prompt."
+        },
+        "gg.snapshotsDir": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Override directory for `gg` snapshot storage (passed as `--snap-dir`). Leave empty to use gg's platform default."
+        },
+        "gg.heartbeatIntervalSeconds": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "markdownDescription": "Heartbeat cadence in seconds for headless runs (passed as `--heartbeat-interval`). `0` uses gg's own default (5s)."
         }
       }
     }
