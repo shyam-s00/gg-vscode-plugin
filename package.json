@@ -11,7 +11,9 @@
   ],
   "activationEvents": [
     "onLanguage:http",
-    "workspaceContains:**/*.http"
+    "workspaceContains:**/*.http",
+    "workspaceContains:**/*.rest",
+    "workspaceContains:**/*.gg.yaml"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -34,14 +36,29 @@
       {
         "command": "gg.run",
         "category": "gg",
-        "title": "Run"
+        "title": "Run",
+        "icon": "$(play)"
       },
       {
         "command": "gg.runConfig",
         "category": "gg",
         "title": "Run (Config)"
+      },
+      {
+        "command": "gg.copyCommand",
+        "category": "gg",
+        "title": "Copy Command"
       }
     ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "gg.run",
+          "when": "resourceExtname == .http || resourceExtname == .rest",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "title": "Gopher-Glide",
       "properties": {

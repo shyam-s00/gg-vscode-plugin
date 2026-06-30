@@ -2,6 +2,9 @@
 // Public types
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** File extensions gg treats as `.http`-dialect request files. */
+export const HTTP_FILE_EXTENSIONS = new Set(['.http', '.rest']);
+
 /** A `# @gg-export <var> = <jsonpath|regex>: <pattern>` directive found in a request block. */
 export interface HttpExportDirective {
   varName: string;

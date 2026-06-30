@@ -4,13 +4,13 @@ import * as vscode from 'vscode';
 
 import type { ConfigManager } from './config';
 import { findSiblingConfig, isGgConfigFile, parseGgConfig } from './configParser';
+import { HTTP_FILE_EXTENSIONS } from './httpParser';
 import type { Installer } from './installer';
 import { BUILT_IN_PROFILES, byCategory, GgProfile, loadCustomProfiles } from './profileCatalog';
 import { buildConfigRunArgs, buildProfileRunArgs, SnapOptions } from './runArgs';
-import type { GgRunner, HeartbeatPayload, RunExitInfo } from './runner';
+import type { GgRunner } from './runner';
 
 const LAST_PROFILE_KEY = 'gg.lastProfile';
-const HTTP_EXTENSIONS = new Set(['.http', '.rest']);
 const DURATION_RE = /^(\d+(h|m|s|ms))+$/;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -23,9 +23,9 @@ const DURATION_RE = /^(\d+(h|m|s|ms))+$/;
  * duration overrides, and the snap checkbox+tag prompt — then hands off to
  * `GgRunner` to actually run `gg` headlessly.
  *
- * Output is rendered into a plain Output Channel for now — Phase 2.5 replaces
- * this rendering with a native Webview dashboard subscribed to the same
- * `GgRunner` events; the run/UX flow here won't need to change.
+ * Live progress (status, metrics, charts) is rendered by `RunPanel`, which
+ * subscribes to `GgRunner` directly and needs no wiring here. The Output
+ * Channel below is just an `$ gg ...` transparency log of what was invoked.
  */
 export class RunCommands implements vscode.Disposable {
   private readonly _disposables: vscode.Disposable[] = [];
@@ -41,11 +41,9 @@ export class RunCommands implements vscode.Disposable {
 
     this._disposables.push(
       this._output,
-      { dispose: this.runner.onHeartbeat((p) => this._renderHeartbeat(p)) },
-      { dispose: this.runner.onExit((info) => this._renderExit(info)) },
-      { dispose: this.runner.onSpawnError((err) => this._renderSpawnError(err)) },
       vscode.commands.registerCommand('gg.run', (uri?: vscode.Uri) => this._cmdRun(uri)),
       vscode.commands.registerCommand('gg.runConfig', (uri?: vscode.Uri) => this._cmdRunConfig(uri)),
+      vscode.commands.registerCommand('gg.copyCommand', (uri?: vscode.Uri) => this._cmdCopyCommand(uri)),
     );
   }
 
@@ -54,13 +52,32 @@ export class RunCommands implements vscode.Disposable {
     this._disposables.length = 0;
   }
 
-  // ── gg.run — profile-driven run for a .http file ──────────────────────────
+  // ── gg.run / gg.copyCommand — profile-driven run for a .http file ─────────
+  // Both share the same prompt flow (profile, RPS/duration overrides, snap);
+  // they only differ in what happens with the resulting command.
 
   private async _cmdRun(uri?: vscode.Uri): Promise<void> {
+    const prepared = await this._prepareProfileRun(uri);
+    if (!prepared) {
+      return;
+    }
+    this._runHeadless(prepared.binPath, prepared.args);
+  }
+
+  private async _cmdCopyCommand(uri?: vscode.Uri): Promise<void> {
+    const prepared = await this._prepareProfileRun(uri);
+    if (!prepared) {
+      return;
+    }
+    await vscode.env.clipboard.writeText([prepared.binPath, ...prepared.args].join(' '));
+    vscode.window.showInformationMessage('Gopher-Glide: Command copied to clipboard.');
+  }
+
+  private async _prepareProfileRun(uri?: vscode.Uri): Promise<{ binPath: string; args: string[] } | undefined> {
     const httpFile = this._resolveHttpFileTarget(uri);
     if (!httpFile) {
       vscode.window.showErrorMessage('Gopher-Glide: Open or select a .http file to run.');
-      return;
+      return undefined;
     }
 
     await this.installer.ensureInstalled();
@@ -74,22 +91,22 @@ export class RunCommands implements vscode.Disposable {
 
     const profile = await pickProfile(allProfiles, defaultProfileName);
     if (!profile) {
-      return;
+      return undefined;
     }
 
     const rpsResult = await promptPeakRpsOverride(profile);
     if (rpsResult.cancelled) {
-      return;
+      return undefined;
     }
 
     const durationResult = await promptDurationOverride(profile);
     if (durationResult.cancelled) {
-      return;
+      return undefined;
     }
 
     const snap = await promptSnapOptions();
     if (!snap) {
-      return;
+      return undefined;
     }
 
     await this.context.workspaceState.update(LAST_PROFILE_KEY, profile.name);
@@ -103,7 +120,7 @@ export class RunCommands implements vscode.Disposable {
       heartbeatIntervalSeconds: this.configMgr.config.heartbeatIntervalSeconds,
     });
 
-    this._runHeadless(binPath, args);
+    return { binPath, args };
   }
 
   // ── gg.runConfig — config-driven run for a .gg.yaml (or .http w/ sibling) ──
@@ -141,7 +158,7 @@ export class RunCommands implements vscode.Disposable {
     if (!target) {
       return undefined;
     }
-    return HTTP_EXTENSIONS.has(path.extname(target).toLowerCase()) ? target : undefined;
+    return HTTP_FILE_EXTENSIONS.has(path.extname(target).toLowerCase()) ? target : undefined;
   }
 
   /** Resolves a `.gg.yaml` directly, or via a sibling lookup from a `.http` file — and validates it parses. */
@@ -154,7 +171,7 @@ export class RunCommands implements vscode.Disposable {
     let configPath: string | undefined;
     if (isGgConfigFile(path.basename(target))) {
       configPath = target;
-    } else if (HTTP_EXTENSIONS.has(path.extname(target).toLowerCase())) {
+    } else if (HTTP_FILE_EXTENSIONS.has(path.extname(target).toLowerCase())) {
       configPath = await findSiblingConfig(target);
     }
     if (!configPath) {
@@ -168,48 +185,8 @@ export class RunCommands implements vscode.Disposable {
   // ── Execution ──────────────────────────────────────────────────────────────
 
   private _runHeadless(binPath: string, args: string[]): void {
-    this._output.clear();
-    this._output.show(true);
     this._output.appendLine(`$ ${binPath} ${args.join(' ')}`);
     this.runner.start(binPath, args);
-  }
-
-  // ── Output Channel rendering of GgRunner events ────────────────────────────
-  // Temporary presentation layer — Phase 2.5's Webview dashboard subscribes to
-  // the same three GgRunner events and replaces this with charts/metric cards.
-
-  private _renderHeartbeat(payload: HeartbeatPayload): void {
-    const parts = [`[${payload.event}]`];
-    if (payload.message) {
-      parts.push(payload.message);
-    }
-    if (payload.profile) {
-      parts.push(`profile=${payload.profile}`);
-    }
-    if (payload.actual_rps !== undefined) {
-      parts.push(`actual=${payload.actual_rps}rps`);
-    }
-    if (payload.target_rps !== undefined) {
-      parts.push(`target=${payload.target_rps}rps`);
-    }
-    if (payload.error_rate !== undefined) {
-      parts.push(`errors=${(payload.error_rate * 100).toFixed(2)}%`);
-    }
-    this._output.appendLine(parts.join(' '));
-  }
-
-  private _renderExit(info: RunExitInfo): void {
-    const signalSuffix = info.signal ? ` (signal ${info.signal})` : '';
-    this._output.appendLine(`\n[Gopher-Glide] gg exited with code ${info.code}${signalSuffix}`);
-    if (info.code !== 0 && info.stderrTail.length > 0) {
-      this._output.appendLine('--- stderr tail ---');
-      info.stderrTail.forEach((line) => this._output.appendLine(line));
-    }
-  }
-
-  private _renderSpawnError(err: Error): void {
-    this._output.appendLine(`\n[Gopher-Glide] Failed to start gg: ${err.message}`);
-    vscode.window.showErrorMessage(`Gopher-Glide: Failed to start gg — ${err.message}`);
   }
 }
 

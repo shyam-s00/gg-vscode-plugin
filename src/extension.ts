@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
 import { ConfigManager } from './config';
 import { RunCommands } from './commands';
+import { GgHttpCodeLensProvider, GgYamlCodeLensProvider } from './codeLens';
 import { Installer } from './installer';
 import { GgRunner } from './runner';
+import { RunPanel } from './runPanel';
 import { StatusBarManager } from './statusBar';
 
 // This method is called when the extension activates
@@ -27,6 +29,26 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(runner);
 	const runCommands = new RunCommands(context, configMgr, installer, runner);
 	context.subscriptions.push(runCommands);
+
+	// 3c. Boot the run dashboard — subscribes to `runner` directly and needs
+	//     no further wiring; it reveals/resets itself on each new run.
+	const runPanel = new RunPanel(runner);
+	context.subscriptions.push(runPanel);
+
+	// 3d. Register CodeLens providers for .http/.rest files and *.gg.yaml configs.
+	//     Pattern-based selectors, not `language: 'http'` — that language id is
+	//     only registered if some other extension happens to claim it.
+	const httpCodeLens = new GgHttpCodeLensProvider();
+	context.subscriptions.push(httpCodeLens);
+	context.subscriptions.push(
+		vscode.languages.registerCodeLensProvider({ pattern: '**/*.{http,rest}' }, httpCodeLens),
+	);
+
+	const yamlCodeLens = new GgYamlCodeLensProvider();
+	context.subscriptions.push(yamlCodeLens);
+	context.subscriptions.push(
+		vscode.languages.registerCodeLensProvider({ pattern: '**/*.gg.yaml' }, yamlCodeLens),
+	);
 
 	// 4. Ensure the binary is present / up-to-date, then refresh the status bar.
 	//    Fire-and-forget so activation is never blocked.
