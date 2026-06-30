@@ -30,6 +30,16 @@
         "command": "gg.openSettings",
         "category": "gg",
         "title": "Open Settings"
+      },
+      {
+        "command": "gg.run",
+        "category": "gg",
+        "title": "Run"
+      },
+      {
+        "command": "gg.runConfig",
+        "category": "gg",
+        "title": "Run (Config)"
       }
     ],
     "configuration": {
