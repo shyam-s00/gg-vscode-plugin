@@ -12,6 +12,8 @@ import type { GgRunner } from './runner';
 
 const LAST_PROFILE_KEY = 'gg.lastProfile';
 const DURATION_RE = /^(\d+(h|m|s|ms))+$/;
+/** Backs the `gg.hasSiblingConfig` "when" clause for the `gg.runConfig` context-menu entry on .http/.rest files. */
+const HAS_SIBLING_CONFIG_CONTEXT_KEY = 'gg.hasSiblingConfig';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RunCommands
@@ -44,7 +46,12 @@ export class RunCommands implements vscode.Disposable {
       vscode.commands.registerCommand('gg.run', (uri?: vscode.Uri) => this._cmdRun(uri)),
       vscode.commands.registerCommand('gg.runConfig', (uri?: vscode.Uri) => this._cmdRunConfig(uri)),
       vscode.commands.registerCommand('gg.copyCommand', (uri?: vscode.Uri) => this._cmdCopyCommand(uri)),
+      vscode.window.onDidChangeActiveTextEditor(() => this._updateContextKeys()),
+      vscode.workspace.onDidCreateFiles(() => this._updateContextKeys()),
+      vscode.workspace.onDidDeleteFiles(() => this._updateContextKeys()),
+      vscode.workspace.onDidRenameFiles(() => this._updateContextKeys()),
     );
+    void this._updateContextKeys();
   }
 
   dispose(): void {
@@ -149,6 +156,21 @@ export class RunCommands implements vscode.Disposable {
     });
 
     this._runHeadless(binPath, args);
+  }
+
+  // ── Context keys (gate the gg.runConfig context-menu entry) ───────────────
+
+  /**
+   * Sets `gg.hasSiblingConfig` so the right-click "Run GG (Config)" entry
+   * only appears on `.http`/`.rest` files when a sibling `.gg.yaml` actually
+   * exists — `.gg.yaml` files themselves are gated by filename in the "when"
+   * clause instead, so they don't need this key.
+   */
+  private async _updateContextKeys(): Promise<void> {
+    const target = vscode.window.activeTextEditor?.document.uri.fsPath;
+    const isHttpFile = !!target && HTTP_FILE_EXTENSIONS.has(path.extname(target).toLowerCase());
+    const hasSiblingConfig = isHttpFile && !!(await findSiblingConfig(target!));
+    await vscode.commands.executeCommand('setContext', HAS_SIBLING_CONFIG_CONTEXT_KEY, hasSiblingConfig);
   }
 
   // ── Target resolution ──────────────────────────────────────────────────────

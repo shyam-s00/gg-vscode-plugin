@@ -131,17 +131,21 @@ export function applySpawnError(state: RunPanelState, err: Error): RunPanelState
  * `RpsChartComponent` + `StageTimelineComponent` — a Webview since that's the
  * only way to render live charts here.
  *
+ * Docked in a bottom panel container (alongside Terminal/Output), not opened
+ * as an editor tab — matching the JetBrains tool window rather than
+ * competing for editor tab space. See `contributes.viewsContainers`/`views`
+ * in package.json for the `gg.runView` registration this implements.
+ *
  * Fully decoupled from `RunCommands`/the run UX flow: it subscribes directly
  * to `GgRunner`'s events and reveals/resets itself automatically whenever a
  * run starts, so triggering a run never needs to know this panel exists.
  */
-export class RunPanel implements vscode.Disposable {
-  private static readonly VIEW_TYPE = 'gg.runPanel';
-  private static readonly TITLE = 'Gopher-Glide Run';
+export class RunPanel implements vscode.Disposable, vscode.WebviewViewProvider {
+  static readonly VIEW_ID = 'gg.runView';
 
   private readonly _disposables: vscode.Disposable[] = [];
-  private _panel: vscode.WebviewPanel | undefined;
-  private _panelDisposables: vscode.Disposable[] = [];
+  private _view: vscode.WebviewView | undefined;
+  private _viewDisposables: vscode.Disposable[] = [];
   private _shownForCurrentRun = false;
   private _state: RunPanelState = createEmptyState();
 
@@ -156,7 +160,36 @@ export class RunPanel implements vscode.Disposable {
   dispose(): void {
     this._disposables.forEach((d) => d.dispose());
     this._disposables.length = 0;
-    this._disposePanel();
+    this._viewDisposables.forEach((d) => d.dispose());
+    this._viewDisposables = [];
+    this._view = undefined;
+  }
+
+  /** Called by VS Code the first time the view becomes visible (and again if it's ever fully disposed and re-requested). */
+  resolveWebviewView(webviewView: vscode.WebviewView): void {
+    this._viewDisposables.forEach((d) => d.dispose());
+    this._viewDisposables = [];
+
+    webviewView.webview.options = { enableScripts: true };
+    // Initial state is embedded directly in the HTML (rather than relying on
+    // a postMessage round-trip) since the webview's script isn't guaranteed
+    // to have registered its message listener before we could otherwise post.
+    webviewView.webview.html = renderHtml(webviewView.webview, this._state);
+
+    this._viewDisposables.push(
+      webviewView.webview.onDidReceiveMessage((msg: { command?: string }) => {
+        if (msg?.command === 'stop') {
+          this.runner.stop();
+        }
+      }),
+      webviewView.onDidDispose(() => {
+        if (this._view === webviewView) {
+          this._view = undefined;
+        }
+      }),
+    );
+
+    this._view = webviewView;
   }
 
   // ── GgRunner event handlers ────────────────────────────────────────────────
@@ -182,58 +215,30 @@ export class RunPanel implements vscode.Disposable {
     this._postState();
   }
 
-  // ── Webview lifecycle ──────────────────────────────────────────────────────
+  // ── Visibility ──────────────────────────────────────────────────────────────
 
+  /**
+   * Reveals the panel once per run (not on every heartbeat), mirroring the
+   * original editor-tab behavior. The very first reveal of a session has to
+   * go through the auto-generated `<viewId>.focus` command (nothing is
+   * resolved yet to call `.show()` on); every reveal after that uses the
+   * already-resolved view's `show(preserveFocus)` so it doesn't steal focus
+   * from whatever the user is doing.
+   */
   private _ensureVisible(): void {
-    if (!this._panel) {
-      this._createPanel();
-      this._shownForCurrentRun = true;
+    if (this._shownForCurrentRun) {
       return;
     }
-    if (!this._shownForCurrentRun) {
-      this._panel.reveal(this._panel.viewColumn, true);
-      this._shownForCurrentRun = true;
+    this._shownForCurrentRun = true;
+    if (this._view) {
+      this._view.show(true);
+    } else {
+      void vscode.commands.executeCommand(`${RunPanel.VIEW_ID}.focus`);
     }
-  }
-
-  private _createPanel(): void {
-    const panel = vscode.window.createWebviewPanel(
-      RunPanel.VIEW_TYPE,
-      RunPanel.TITLE,
-      { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
-      { enableScripts: true, retainContextWhenHidden: true },
-    );
-
-    // Initial state is embedded directly in the HTML (rather than relying on
-    // a postMessage round-trip) since the webview's script isn't guaranteed
-    // to have registered its message listener before we could otherwise post.
-    panel.webview.html = renderHtml(panel.webview, this._state);
-
-    this._panelDisposables.push(
-      panel.webview.onDidReceiveMessage((msg: { command?: string }) => {
-        if (msg?.command === 'stop') {
-          this.runner.stop();
-        }
-      }),
-      panel.onDidDispose(() => {
-        this._panelDisposables.forEach((d) => d.dispose());
-        this._panelDisposables = [];
-        this._panel = undefined;
-      }),
-    );
-
-    this._panel = panel;
-  }
-
-  private _disposePanel(): void {
-    this._panelDisposables.forEach((d) => d.dispose());
-    this._panelDisposables = [];
-    this._panel?.dispose();
-    this._panel = undefined;
   }
 
   private _postState(): void {
-    this._panel?.webview.postMessage({ type: 'state', state: this._state });
+    this._view?.webview.postMessage({ type: 'state', state: this._state });
   }
 }
 

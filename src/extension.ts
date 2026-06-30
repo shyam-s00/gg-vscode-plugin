@@ -30,10 +30,18 @@ export function activate(context: vscode.ExtensionContext) {
 	const runCommands = new RunCommands(context, configMgr, installer, runner);
 	context.subscriptions.push(runCommands);
 
-	// 3c. Boot the run dashboard — subscribes to `runner` directly and needs
-	//     no further wiring; it reveals/resets itself on each new run.
+	// 3c. Boot the run dashboard — subscribes to `runner` directly and needs no
+	//     further wiring; it reveals/resets itself on each new run. Registered
+	//     as a WebviewView docked in the bottom panel (see contributes.views in
+	//     package.json), not an editor tab, so it doesn't compete for tab space
+	//     and survives being hidden via retainContextWhenHidden.
 	const runPanel = new RunPanel(runner);
 	context.subscriptions.push(runPanel);
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(RunPanel.VIEW_ID, runPanel, {
+			webviewOptions: { retainContextWhenHidden: true },
+		}),
+	);
 
 	// 3d. Register CodeLens providers for .http/.rest files and *.gg.yaml configs.
 	//     Pattern-based selectors, not `language: 'http'` — that language id is

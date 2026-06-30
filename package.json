@@ -50,12 +50,68 @@
         "title": "Copy Command"
       }
     ],
+    "submenus": [
+      {
+        "id": "gg.contextMenu",
+        "label": "Gopher-Glide",
+        "icon": "media/gg-icon.svg"
+      }
+    ],
     "menus": {
       "editor/title": [
         {
           "command": "gg.run",
           "when": "resourceExtname == .http || resourceExtname == .rest",
           "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "submenu": "gg.contextMenu",
+          "when": "resourceExtname == .http || resourceExtname == .rest || resourceFilename =~ /\\.gg\\.yaml$/",
+          "group": "gg@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "submenu": "gg.contextMenu",
+          "when": "resourceExtname == .http || resourceExtname == .rest || resourceFilename =~ /\\.gg\\.yaml$/",
+          "group": "gg@1"
+        }
+      ],
+      "gg.contextMenu": [
+        {
+          "command": "gg.run",
+          "when": "resourceExtname == .http || resourceExtname == .rest",
+          "group": "gg@1"
+        },
+        {
+          "command": "gg.runConfig",
+          "when": "resourceFilename =~ /\\.gg\\.yaml$/ || ((resourceExtname == .http || resourceExtname == .rest) && gg.hasSiblingConfig)",
+          "group": "gg@2"
+        },
+        {
+          "command": "gg.copyCommand",
+          "when": "resourceExtname == .http || resourceExtname == .rest",
+          "group": "gg@3"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "gg",
+          "title": "Gopher-Glide",
+          "icon": "media/gg-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "gg": [
+        {
+          "id": "gg.runView",
+          "name": "Run",
+          "type": "webview"
         }
       ]
     },
