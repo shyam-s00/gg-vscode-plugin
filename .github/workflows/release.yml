@@ -1,0 +1,70 @@
+name: Release
+
+# Triggers on a pushed version tag, e.g. v1.0.0, v1.2.3-beta.
+# Builds, tests, stamps package.json with the tag's version, packages a .vsix,
+# and publishes it as a GitHub Release asset. Does NOT publish to any
+# marketplace — see publish.yml, which runs separately once this release is
+# published, against this exact .vsix.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write # create GitHub Release and upload assets
+
+jobs:
+  package:
+    name: Build, test & package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check types
+        run: pnpm run check-types
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Compile tests
+        run: pnpm run compile-tests
+
+      - name: Compile
+        run: node esbuild.js
+
+      - name: Run tests
+        run: xvfb-run -a pnpm test
+
+      - name: Stamp version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Package extension
+        run: npx @vscode/vsce package --no-dependencies
+
+      - name: Upload .vsix as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gopher-glide-${{ github.ref_name }}
+          path: "*.vsix"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.vsix"
+          generate_release_notes: true

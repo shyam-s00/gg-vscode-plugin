@@ -1,12 +1,32 @@
 {
   "name": "gopher-glide",
   "displayName": "Gopher-Glide",
-  "description": "A VS Code extension for Gopher-Glide HTTP traffic simulation",
+  "description": "Zero-scripting API traffic simulation & performance benchmarking for .http files — a lightweight k6/Gatling/Locust alternative with a live run dashboard and snapshot regression testing, built in.",
   "version": "0.0.1",
+  "publisher": "gopherglide",
+  "license": "MIT",
+  "icon": "media/ggToolIcon_color.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shyam-s00/gg-vscode-plugin"
+  },
+  "bugs": {
+    "url": "https://github.com/shyam-s00/gg-vscode-plugin/issues"
+  },
+  "homepage": "https://gopherglide.dev",
+  "keywords": [
+    "http",
+    "load-testing",
+    "performance",
+    "api-testing",
+    "gopher-glide",
+    "rest-client"
+  ],
   "engines": {
     "vscode": "^1.120.0"
   },
   "categories": [
+    "Testing",
     "Other"
   ],
   "activationEvents": [

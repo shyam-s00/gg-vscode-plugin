@@ -3,8 +3,13 @@
 out/**
 node_modules/**
 src/**
+ignore/**
+.github/**
 .gitignore
 .yarnrc
+.npmrc
+pnpm-lock.yaml
+pnpm-workspace.yaml
 esbuild.js
 vsc-extension-quickstart.md
 **/tsconfig.json
