@@ -126,7 +126,7 @@ export class ConfigManager implements vscode.Disposable {
         this._cmdCheckForUpdates(),
       ),
       vscode.commands.registerCommand('gg.openSettings', () =>
-        vscode.commands.executeCommand('workbench.action.openSettings', '@ext:gopher-glide'),
+        vscode.commands.executeCommand('workbench.action.openSettings', '@ext:gopherglide.gg-plugin'),
       ),
     );
   }

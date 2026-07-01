@@ -6,10 +6,8 @@ const SUCCESSFUL_RUN_COUNT_KEY = 'gg.successfulRunCount';
 const RATE_PROMPTED_KEY = 'gg.ratePromptShown';
 const RUNS_BEFORE_PROMPT = 3;
 
-// TODO: update to the real marketplace listing URL once the extension is
-// published (replace the placeholder publisher/extension-name segment).
 const MARKETPLACE_REVIEW_URL =
-  'https://marketplace.visualstudio.com/items?itemName=gopherglide.gopher-glide&ssr=false#review-details';
+  'https://marketplace.visualstudio.com/items?itemName=gopherglide.gg-plugin&ssr=false#review-details';
 
 /**
  * Tracks successful headless runs (clean exit, code 0) in `globalState`

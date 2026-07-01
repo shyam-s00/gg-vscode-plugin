@@ -60,7 +60,7 @@ jobs:
       - name: Upload .vsix as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gopher-glide-${{ github.ref_name }}
+          name: gg-plugin-${{ github.ref_name }}
           path: "*.vsix"
 
       - name: Create GitHub Release

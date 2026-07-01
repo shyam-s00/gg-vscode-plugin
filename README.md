@@ -1,8 +1,8 @@
 # Gopher-Glide for VS Code
 
-[![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/gopherglide.gopher-glide?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=gopherglide.gopher-glide)
-[![Visual Studio Marketplace Installs](https://img.shields.io/visual-studio-marketplace/i/gopherglide.gopher-glide)](https://marketplace.visualstudio.com/items?itemName=gopherglide.gopher-glide)
-[![Open VSX Version](https://img.shields.io/open-vsx/v/gopherglide/gopher-glide?label=Open%20VSX)](https://open-vsx.org/extension/gopherglide/gopher-glide)
+[![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/gopherglide.gg-plugin?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=gopherglide.gg-plugin)
+[![Visual Studio Marketplace Installs](https://img.shields.io/visual-studio-marketplace/i/gopherglide.gg-plugin)](https://marketplace.visualstudio.com/items?itemName=gopherglide.gg-plugin)
+[![Open VSX Version](https://img.shields.io/open-vsx/v/gopherglide/gg-plugin?label=Open%20VSX)](https://open-vsx.org/extension/gopherglide/gg-plugin)
 [![CI](https://github.com/shyam-s00/gg-vscode-plugin/actions/workflows/ci.yml/badge.svg)](https://github.com/shyam-s00/gg-vscode-plugin/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
