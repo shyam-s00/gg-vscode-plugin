@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Gopher-Glide Configuration",
+  "type": "object",
+  "properties": {
+    "config": {
+      "type": "object",
+      "properties": {
+        "httpFile": {
+          "type": "string",
+          "description": "Path to the HTTP request file (e.g. request.http)"
+        },
+        "prometheus": {
+          "type": "boolean",
+          "description": "Enable Prometheus metrics export"
+        },
+        "breaker_threshold_pct": {
+          "type": "number",
+          "description": "Percentage of errors to trip the circuit breaker"
+        },
+        "jitter": {
+          "type": "number",
+          "description": "Organic noise on the RPS ticker (e.g., 0.1 for ±10%)"
+        },
+        "time_scale": {
+          "type": "number",
+          "description": "Time multiplier (1.0 = real-time, 2.0 = 2x speed)"
+        },
+        "snap": {
+          "type": "object",
+          "description": "Snapshot recording configuration",
+          "properties": {
+            "sample_rate": {
+              "type": "number",
+              "description": "Fraction of requests to sample for body inference (e.g., 0.05 for 5%)"
+            },
+            "max_samples": {
+              "type": "integer",
+              "description": "Maximum number of body samples to retain per endpoint"
+            },
+            "max_body_kb": {
+              "type": "integer",
+              "description": "Maximum body size in KB to sample per request"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["httpFile"],
+      "additionalProperties": false
+    },
+    "stages": {
+      "type": "array",
+      "description": "List of load test stages using linear interpolation (LERP)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Optional human-readable name for the stage (e.g., 'Ramp-up', 'Sustain')"
+          },
+          "duration": {
+            "type": "string",
+            "description": "Stage duration (e.g., '10s', '0s' for instant spike)"
+          },
+          "target_rps": {
+            "type": "number",
+            "description": "Target Requests Per Second at the end of the stage"
+          }
+        },
+        "required": ["duration", "target_rps"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["config", "stages"],
+  "additionalProperties": false
+}

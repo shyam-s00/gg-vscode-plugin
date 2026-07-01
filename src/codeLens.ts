@@ -96,6 +96,12 @@ export class GgHttpCodeLensProvider implements vscode.CodeLensProvider, vscode.D
           command: 'gg.runConfig',
           arguments: [document.uri],
         }));
+      } else {
+        lenses.push(new vscode.CodeLens(range, {
+          title: '⚙ Generate Config',
+          command: 'gg.generateConfig',
+          arguments: [document.uri],
+        }));
       }
     }
     return lenses;

@@ -53,12 +53,14 @@ suite('GgHttpCodeLensProvider', () => {
     ].join('\n'));
 
     const lenses = await provider.provideCodeLenses(doc, NOOP_TOKEN);
-    assert.strictEqual(lenses.length, 2);
+    // 2 requests × 2 lenses each (▶ Run GG + ⚙ Generate Config, no sibling) = 4
+    assert.strictEqual(lenses.length, 4);
     assert.strictEqual(lenses[0].command?.title, '▶ Run GG');
     assert.strictEqual(lenses[0].command?.command, 'gg.run');
     assert.deepStrictEqual(lenses[0].command?.arguments, [doc.uri]);
     assert.strictEqual(lenses[0].range.start.line, 1);
-    assert.strictEqual(lenses[1].range.start.line, 4);
+    assert.strictEqual(lenses[1].command?.command, 'gg.generateConfig');
+    assert.strictEqual(lenses[2].range.start.line, 4);
   });
 
   test('returns no lenses for a file with no parseable request', async () => {
@@ -79,11 +81,14 @@ suite('GgHttpCodeLensProvider', () => {
     assert.strictEqual(lenses[1].range.start.line, lenses[0].range.start.line);
   });
 
-  test('does not add a config lens when no sibling .gg.yaml exists', async () => {
+  test('shows "Generate Config" instead of "Run (Config)" when no sibling .gg.yaml exists', async () => {
     const doc = await openTempFile(dir, 'api.http', 'GET https://example.com/\n');
     const lenses = await provider.provideCodeLenses(doc, NOOP_TOKEN);
-    assert.strictEqual(lenses.length, 1);
+    // 1 request × 2 lenses: ▶ Run GG + ⚙ Generate Config
+    assert.strictEqual(lenses.length, 2);
     assert.strictEqual(lenses[0].command?.command, 'gg.run');
+    assert.strictEqual(lenses[1].command?.command, 'gg.generateConfig');
+    assert.strictEqual(lenses[1].command?.title, '⚙ Generate Config');
   });
 });
 

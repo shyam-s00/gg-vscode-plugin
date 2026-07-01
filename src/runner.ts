@@ -111,8 +111,9 @@ function parseHeartbeatLine(line: string): HeartbeatPayload | undefined {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Runs `gg` headlessly (never via a terminal/TUI — see vscode-extension-plan.md
- * Phase 2 for why) and streams parsed heartbeat events to subscribers.
+ * Runs `gg` headlessly (never via a terminal/TUI — the interactive TUI approach
+ * was tried and caused IDE CPU/crash regressions) and streams parsed heartbeat
+ * events to subscribers.
  *
  * Enforces a single active run: calling `start()` while a process is already
  * running kills it first, mirroring the JetBrains plugin's one-`activeHandler`

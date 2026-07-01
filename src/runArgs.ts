@@ -73,8 +73,8 @@ function appendSnapAndReportingArgs(
     }
   }
 
-  // Every editor-initiated run is headless+JSON — the integrated-terminal/TUI
-  // path was tried and removed upstream (see vscode-extension-plan.md Phase 2).
+  // Every editor-initiated run is headless+JSON — the interactive TUI caused
+  // IDE CPU/crash regressions when tried, so this is the only execution path.
   args.push('--headless', '--reporter', 'json');
 
   if (heartbeatIntervalSeconds && heartbeatIntervalSeconds > 0) {

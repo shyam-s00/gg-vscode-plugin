@@ -114,8 +114,8 @@ function parseBlock(
   const bodyLines: string[] = [];
   const exports: HttpExportDirective[] = [];
 
-  type Phase = 'seeking-request' | 'headers' | 'body';
-  let phase: Phase = 'seeking-request';
+  type ParseSection ='seeking-request' | 'headers' | 'body';
+  let section: ParseSection = 'seeking-request';
 
   const contentStart = SEPARATOR_RE.test(lines[lineStart]) ? lineStart + 1 : lineStart;
 
@@ -143,7 +143,7 @@ function parseBlock(
       continue;
     }
 
-    if (phase === 'seeking-request') {
+    if (section === 'seeking-request') {
       if (!trimmed || COMMENT_RE.test(trimmed)) {
         continue;
       }
@@ -152,14 +152,14 @@ function parseBlock(
         method = parsed.method;
         url = parsed.url;
         requestLine = i;
-        phase = 'headers';
+        section = 'headers';
       }
       continue;
     }
 
-    if (phase === 'headers') {
+    if (section === 'headers') {
       if (!trimmed) {
-        phase = 'body';
+        section = 'body';
         continue;
       }
       if (COMMENT_RE.test(trimmed)) {
@@ -171,12 +171,12 @@ function parseBlock(
         continue;
       }
       // Doesn't look like a header — treat it as the first line of a body with no blank-line separator.
-      phase = 'body';
+      section = 'body';
       bodyLines.push(raw);
       continue;
     }
 
-    // phase === 'body'
+    // section === 'body'
     // Trailing `#`/`//` comments are treated as stripped metadata rather than body
     // content — a deliberate simplification, since this is an editor-tooling parser,
     // not gg's own (which knows the real body length from Content-Length/parsing).

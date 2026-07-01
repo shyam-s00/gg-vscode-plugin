@@ -48,6 +48,18 @@
         "command": "gg.copyCommand",
         "category": "gg",
         "title": "Copy Command"
+      },
+      {
+        "command": "gg.generateConfig",
+        "category": "gg",
+        "title": "Generate Config",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "gg.newHttpTest",
+        "category": "gg",
+        "title": "New HTTP Test File",
+        "icon": "$(new-file)"
       }
     ],
     "submenus": [
@@ -91,12 +103,28 @@
           "group": "gg@2"
         },
         {
+          "command": "gg.generateConfig",
+          "when": "(resourceExtname == .http || resourceExtname == .rest) && !gg.hasSiblingConfig",
+          "group": "gg@2"
+        },
+        {
           "command": "gg.copyCommand",
           "when": "resourceExtname == .http || resourceExtname == .rest",
           "group": "gg@3"
+        },
+        {
+          "command": "gg.newHttpTest",
+          "when": "explorerResourceIsFolder || resourceScheme == file",
+          "group": "gg@4"
         }
       ]
     },
+    "yamlValidation": [
+      {
+        "fileMatch": "*.gg.yaml",
+        "url": "./schemas/gg-schema.json"
+      }
+    ],
     "viewsContainers": {
       "panel": [
         {

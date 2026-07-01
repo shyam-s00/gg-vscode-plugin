@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { ConfigManager } from './config';
 import { RunCommands } from './commands';
 import { GgHttpCodeLensProvider, GgYamlCodeLensProvider } from './codeLens';
+import { GgYamlDefinitionProvider } from './definitionProvider';
+import { ScaffoldCommands } from './scaffolding';
 import { Installer } from './installer';
 import { RatePrompter } from './ratePrompt';
 import { GgRunner } from './runner';
@@ -61,6 +63,15 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.languages.registerCodeLensProvider({ pattern: '**/*.gg.yaml' }, yamlCodeLens),
 	);
+
+	// .gg.yaml language support & scaffolding
+	const definitionProvider = new GgYamlDefinitionProvider();
+	context.subscriptions.push(definitionProvider);
+	context.subscriptions.push(
+		vscode.languages.registerDefinitionProvider({ pattern: '**/*.gg.yaml' }, definitionProvider),
+	);
+
+	context.subscriptions.push(new ScaffoldCommands());
 
 	// 4. Ensure the binary is present / up-to-date, then refresh the status bar.
 	//    Fire-and-forget so activation is never blocked.
