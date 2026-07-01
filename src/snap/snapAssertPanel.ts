@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import type { ConfigManager } from '../config';
 import type { Installer } from '../installer';
 import { runSnapCommand } from './snapCliRunner';
+import { getSnapDetailPanel } from './snapDetailPanel';
 import type { LoadedSnap } from './snapModel';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -215,12 +216,7 @@ export async function handleAssert(
     return;
   }
 
-  const panel = vscode.window.createWebviewPanel(
-    'gg.snapAssertResult',
-    'Assert Result',
-    { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
-    { enableScripts: false },
-  );
+  const panel = getSnapDetailPanel('Assert Result');
   panel.webview.html = buildAssertResultHtml(baseline, compare, result, opts);
 }
 

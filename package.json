@@ -96,7 +96,7 @@
       {
         "id": "gg.contextMenu",
         "label": "Gopher-Glide",
-        "icon": "media/gg-icon.svg"
+        "icon": "media/ggToolIcon.svg"
       }
     ],
     "menus": {
@@ -194,7 +194,7 @@
         {
           "id": "gg",
           "title": "Gopher-Glide",
-          "icon": "media/gg-icon.svg"
+          "icon": "media/ggToolIcon.svg"
         }
       ]
     },

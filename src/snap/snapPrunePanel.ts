@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import type { ConfigManager } from '../config';
 import type { Installer } from '../installer';
 import { runSnapCommand } from './snapCliRunner';
+import { getSnapDetailPanel } from './snapDetailPanel';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types — exported for testing
@@ -247,12 +248,7 @@ export async function handlePrune(
     onRefresh();
   }
 
-  const panel = vscode.window.createWebviewPanel(
-    'gg.snapPruneResult',
-    result.dry_run ? 'Prune Preview' : 'Prune Complete',
-    { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
-    { enableScripts: false },
-  );
+  const panel = getSnapDetailPanel(result.dry_run ? 'Prune Preview' : 'Prune Complete');
   panel.webview.html = buildPruneResultHtml(result, opts);
 }
 

@@ -1,5 +1,4 @@
-import * as vscode from 'vscode';
-
+import { getSnapDetailPanel } from './snapDetailPanel';
 import { formatEndpointId } from './snapViewPanel';
 import { endpointRequestCount } from './snapModel';
 import type { LoadedSnap, SnapEndpoint } from './snapModel';
@@ -109,7 +108,7 @@ function pctChange(before: number, after: number): number {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Opens a Webview panel comparing two snapshots.
+ * Shows a comparison of two snapshots in the shared snap detail panel.
  * Automatically orders them oldest→newest regardless of selection order,
  * mirroring the JetBrains SnapDiffDialog behaviour.
  */
@@ -120,13 +119,7 @@ export function showSnapDiff(a: LoadedSnap, b: LoadedSnap): void {
   const bTag = baseline.meta.tag.trim() || '(untagged)';
   const cTag = compare.meta.tag.trim() || '(untagged)';
 
-  const panel = vscode.window.createWebviewPanel(
-    'gg.snapDiff',
-    `Diff: ${bTag} ↔ ${cTag}`,
-    { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
-    { enableScripts: false },
-  );
-
+  const panel = getSnapDetailPanel(`Diff: ${bTag} ↔ ${cTag}`);
   panel.webview.html = buildSnapDiffHtml(baseline, compare, bTag, cTag);
 }
 

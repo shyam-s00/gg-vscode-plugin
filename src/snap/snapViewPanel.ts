@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import { getSnapDetailPanel } from './snapDetailPanel';
 import { endpointRequestCount } from './snapModel';
 import type { LoadedSnap, SnapEndpoint } from './snapModel';
 
@@ -30,17 +31,10 @@ export function formatEndpointId(id: string): string {
 // Panel
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Opens a Webview panel displaying a single `.snap` file's contents. */
+/** Shows a single `.snap` file's contents in the shared snap detail panel. */
 export function showSnapView(snap: LoadedSnap): void {
   const tag = snap.meta.tag.trim() || '(untagged)';
-
-  const panel = vscode.window.createWebviewPanel(
-    'gg.snapView',
-    `Snapshot: ${tag}`,
-    { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
-    { enableScripts: true },
-  );
-
+  const panel = getSnapDetailPanel(`Snapshot: ${tag}`);
   panel.webview.html = buildSnapViewHtml(panel.webview, snap, tag);
 }
 
