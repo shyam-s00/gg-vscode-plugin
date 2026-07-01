@@ -3,6 +3,7 @@ import { ConfigManager } from './config';
 import { RunCommands } from './commands';
 import { GgHttpCodeLensProvider, GgYamlCodeLensProvider } from './codeLens';
 import { Installer } from './installer';
+import { RatePrompter } from './ratePrompt';
 import { GgRunner } from './runner';
 import { RunPanel } from './runPanel';
 import { StatusBarManager } from './statusBar';
@@ -29,6 +30,9 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(runner);
 	const runCommands = new RunCommands(context, configMgr, installer, runner);
 	context.subscriptions.push(runCommands);
+
+	// 3b-ii. Rate-prompt tracker — fires once after 3 clean gg runs.
+	context.subscriptions.push(new RatePrompter(context, runner));
 
 	// 3c. Boot the run dashboard — subscribes to `runner` directly and needs no
 	//     further wiring; it reveals/resets itself on each new run. Registered
