@@ -3,6 +3,7 @@
   "displayName": "Gopher-Glide",
   "description": "Zero-scripting API traffic simulation & performance benchmarking for .http files — a lightweight k6/Gatling/Locust alternative with a live run dashboard and snapshot regression testing, built in.",
   "version": "1.0.0",
+  "packageManager": "pnpm@11.4.0",
   "publisher": "gopherglide",
   "license": "MIT",
   "icon": "media/ggToolIcon_color.png",

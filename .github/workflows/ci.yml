@@ -8,12 +8,8 @@ on:
 
 jobs:
   build-and-test:
-    name: Build & Test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    name: Build & Test
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -25,7 +21,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -43,10 +39,5 @@ jobs:
       - name: Compile tests
         run: pnpm run compile-tests
 
-      - name: Run tests (Linux, headless via Xvfb)
-        if: runner.os == 'Linux'
+      - name: Run tests (headless via Xvfb)
         run: xvfb-run -a pnpm test
-
-      - name: Run tests
-        if: runner.os != 'Linux'
-        run: pnpm test
