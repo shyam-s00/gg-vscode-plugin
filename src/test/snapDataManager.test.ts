@@ -5,6 +5,7 @@ import * as path from 'path';
 
 import { defaultSnapshotsDir, loadSnaps, parseSnapFile, resolveSnapshotsDir } from '../snap/snapDataManager';
 import { endpointRequestCount } from '../snap/snapModel';
+import { formatSnapDate } from '../snap/snapTreeProvider';
 
 const SNAP_V1_MINIMAL = JSON.stringify({
   version: 1,
@@ -53,16 +54,16 @@ suite('resolveSnapshotsDir', () => {
     const resolved = resolveSnapshotsDir('');
     assert.ok(resolved.length > 0);
     assert.ok(resolved.includes('gg'));
-    assert.ok(resolved.includes('snaps'));
+    assert.ok(resolved.includes('snapshots'));
   });
 });
 
 suite('defaultSnapshotsDir', () => {
-  test('returns a non-empty path containing "gg" and "snaps"', () => {
+  test('returns a non-empty path containing "gg" and "snapshots"', () => {
     const dir = defaultSnapshotsDir();
     assert.ok(dir.length > 0);
     assert.ok(dir.includes('gg'), `expected "gg" in "${dir}"`);
-    assert.ok(dir.includes('snaps'), `expected "snaps" in "${dir}"`);
+    assert.ok(dir.includes('snapshots'), `expected "snapshots" in "${dir}"`);
   });
 
   test('starts from the user home directory', () => {
@@ -173,5 +174,123 @@ suite('endpointRequestCount', () => {
   test('returns 0 when both are absent', () => {
     const ep = { id: 'GET:/', status_dist: {}, latency: { p50: 0, p95: 0, p99: 0, max: 0 }, error_rate: 0 };
     assert.strictEqual(endpointRequestCount(ep), 0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Real snap file shape — fixtures embedded verbatim from ~/dev/snap-gg/ to
+// catch any drift between our type definitions and what gg actually emits.
+//
+// Key differences from the synthetic fixtures above:
+//  · Timezone-offset timestamps (not UTC Z-suffix)
+//  · config_hash present on meta
+//  · Empty tag string ""
+//  · sample_count per endpoint (not request_count)
+//  · No payload_size, no schema, no snap_settings (minimal real-world output)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const REAL_SNAP = `{
+  "version": 1,
+  "meta": {
+    "tag": "",
+    "start_time": "2026-03-20T20:57:58.274571-03:00",
+    "end_time": "2026-03-20T20:59:18.471139-03:00",
+    "peak_rps": 650,
+    "total_requests": 26941,
+    "config_hash": "sha256:9416f385646841cdd45897a8d85faf99f14c9ee93da06209f843027b11c1fa3c"
+  },
+  "endpoints": [
+    {
+      "id": "POST:http://localhost:8080/post-bench",
+      "status_dist": { "200": 1 },
+      "latency": { "p50": 100, "p95": 102, "p99": 102, "max": 106 },
+      "error_rate": 0,
+      "sample_count": 8980
+    },
+    {
+      "id": "GET:http://localhost:8080/slow-get",
+      "status_dist": { "200": 1 },
+      "latency": { "p50": 500, "p95": 502, "p99": 503, "max": 507 },
+      "error_rate": 0,
+      "sample_count": 8980
+    },
+    {
+      "id": "GET:http://localhost:8080/fast-get",
+      "status_dist": { "200": 1 },
+      "latency": { "p50": 50, "p95": 52, "p99": 53, "max": 59 },
+      "error_rate": 0,
+      "sample_count": 8981
+    }
+  ]
+}`;
+
+suite('real snap file format', () => {
+  test('parseSnapFile succeeds on the exact JSON gg produces', () => {
+    const model = parseSnapFile(REAL_SNAP);
+    assert.ok(model, 'parseSnapFile returned undefined for a real snap');
+    assert.strictEqual(model!.version, 1);
+    assert.strictEqual(model!.meta.tag, '');
+    assert.strictEqual(model!.meta.peak_rps, 650);
+    assert.strictEqual(model!.meta.total_requests, 26941);
+    assert.strictEqual(model!.meta.config_hash, 'sha256:9416f385646841cdd45897a8d85faf99f14c9ee93da06209f843027b11c1fa3c');
+    assert.strictEqual(model!.endpoints.length, 3);
+  });
+
+  test('endpoint fields from the real file are parsed correctly', () => {
+    const model = parseSnapFile(REAL_SNAP)!;
+    const bench = model.endpoints.find((e) => e.id === 'POST:http://localhost:8080/post-bench');
+    assert.ok(bench);
+    assert.strictEqual(bench!.latency.p99, 102);
+    assert.strictEqual(bench!.error_rate, 0);
+    assert.strictEqual(bench!.sample_count, 8980);
+    assert.strictEqual(bench!.request_count, undefined);
+    assert.strictEqual(bench!.payload_size, undefined);
+    assert.strictEqual(bench!.schema, undefined);
+  });
+
+  test('endpointRequestCount works with sample_count as gg emits it', () => {
+    const model = parseSnapFile(REAL_SNAP)!;
+    const ep = model.endpoints[0];
+    assert.strictEqual(endpointRequestCount(ep), 8980);
+  });
+
+  test('formatSnapDate handles the timezone-offset timestamp format gg produces', () => {
+    const result = formatSnapDate('2026-03-20T20:57:58.274571-03:00');
+    // Must produce a non-empty human-readable string (not the raw fallback or "Invalid Date").
+    assert.ok(result.length > 0);
+    assert.ok(!result.includes('Invalid Date'), `got "${result}" instead of a formatted date`);
+    assert.ok(!result.includes('2026-03-20T'), 'expected display format, not raw ISO string');
+  });
+
+  suite('loadSnaps with real-shaped content written to disk', () => {
+    let dir: string;
+
+    setup(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gg-real-snap-'));
+      fs.writeFileSync(path.join(dir, 'run-20260320-235918.snap'), REAL_SNAP);
+    });
+
+    teardown(() => {
+      fs.rmSync(dir, { recursive: true, force: true });
+    });
+
+    test('loads and returns a LoadedSnap with correct metadata', async () => {
+      const snaps = await loadSnaps(dir);
+      assert.strictEqual(snaps.length, 1);
+      assert.strictEqual(snaps[0].meta.total_requests, 26941);
+      assert.strictEqual(snaps[0].meta.peak_rps, 650);
+      assert.strictEqual(snaps[0].internalIndex, 1);
+      assert.ok(snaps[0].filePath.endsWith('run-20260320-235918.snap'));
+    });
+
+    test('tag is empty string, not undefined, when gg omits the tag', async () => {
+      const snaps = await loadSnaps(dir);
+      assert.strictEqual(snaps[0].meta.tag, '');
+    });
+
+    test('all three endpoints from the real file are loaded', async () => {
+      const snaps = await loadSnaps(dir);
+      assert.strictEqual(snaps[0].endpoints.length, 3);
+    });
   });
 });

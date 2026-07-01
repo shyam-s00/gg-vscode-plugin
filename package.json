@@ -60,6 +60,36 @@
         "category": "gg",
         "title": "New HTTP Test File",
         "icon": "$(new-file)"
+      },
+      {
+        "command": "gg.refreshSnaps",
+        "category": "gg",
+        "title": "Refresh Snapshots",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "gg.viewSnap",
+        "category": "gg",
+        "title": "View Snapshot",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "gg.diffSnaps",
+        "category": "gg",
+        "title": "Diff Snapshots",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "gg.assertSnaps",
+        "category": "gg",
+        "title": "Assert Snapshots",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "gg.pruneSnaps",
+        "category": "gg",
+        "title": "Prune Snapshots",
+        "icon": "$(trash)"
       }
     ],
     "submenus": [
@@ -89,6 +119,40 @@
           "submenu": "gg.contextMenu",
           "when": "resourceExtname == .http || resourceExtname == .rest || resourceFilename =~ /\\.gg\\.yaml$/",
           "group": "gg@1"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "gg.refreshSnaps",
+          "when": "view == gg.snapView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "gg.viewSnap",
+          "when": "view == gg.snapView && gg.snapSelectionCount == 1",
+          "group": "navigation@2"
+        },
+        {
+          "command": "gg.diffSnaps",
+          "when": "view == gg.snapView && gg.snapSelectionCount == 2",
+          "group": "navigation@3"
+        },
+        {
+          "command": "gg.assertSnaps",
+          "when": "view == gg.snapView && gg.snapSelectionCount == 2",
+          "group": "navigation@4"
+        },
+        {
+          "command": "gg.pruneSnaps",
+          "when": "view == gg.snapView",
+          "group": "navigation@5"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "gg.viewSnap",
+          "when": "view == gg.snapView && viewItem == snapItem",
+          "group": "inline@1"
         }
       ],
       "gg.contextMenu": [
@@ -140,6 +204,11 @@
           "id": "gg.runView",
           "name": "Run",
           "type": "webview"
+        },
+        {
+          "id": "gg.snapView",
+          "name": "Snaps",
+          "type": "tree"
         }
       ]
     },

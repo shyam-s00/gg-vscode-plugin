@@ -9,26 +9,40 @@ import type { LoadedSnap, SnapModel } from './snapModel';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Returns the platform-appropriate default snapshots directory that `gg` itself
- * uses. Exported for unit testing.
+ * Returns the directory where `gg` stores snapshots, matching the CLI's own
+ * `ResolveSnapDir` logic exactly (verified against the gg source):
  *
- * - macOS:   ~/Library/Application Support/gg/snaps
- * - Windows: %APPDATA%\gg\snaps
- * - Linux:   $XDG_DATA_HOME/gg/snaps  (falls back to ~/.local/share/gg/snaps)
+ *  Priority:
+ *   1. `GG_SNAP_DIR` environment variable (same as CLI priority #2)
+ *   2. `os.UserConfigDir()/gg/snapshots`:
+ *      - macOS:   ~/Library/Application Support/gg/snapshots
+ *      - Windows: %APPDATA%\gg\snapshots
+ *      - Linux:   $XDG_CONFIG_HOME/gg/snapshots  (falls back to ~/.config/gg/snapshots)
+ *
+ * The subdirectory is "snapshots" (not "snaps") and the base is the user
+ * *config* dir (not data/cache), matching the Go `os.UserConfigDir()` semantics.
  */
 export function defaultSnapshotsDir(): string {
+  const envDir = process.env['GG_SNAP_DIR'];
+  if (envDir) {
+    return envDir;
+  }
+
   const home = os.homedir();
   switch (process.platform) {
     case 'darwin':
-      return path.join(home, 'Library', 'Application Support', 'gg', 'snaps');
+      return path.join(home, 'Library', 'Application Support', 'gg', 'snapshots');
     case 'win32':
-      return path.join(process.env['APPDATA'] ?? path.join(home, 'AppData', 'Roaming'), 'gg', 'snaps');
+      return path.join(
+        process.env['APPDATA'] ?? path.join(home, 'AppData', 'Roaming'),
+        'gg',
+        'snapshots',
+      );
     default: {
-      const xdgData = process.env['XDG_DATA_HOME'];
-      const base = xdgData && path.isAbsolute(xdgData)
-        ? xdgData
-        : path.join(home, '.local', 'share');
-      return path.join(base, 'gg', 'snaps');
+      const xdgConfig = process.env['XDG_CONFIG_HOME'];
+      const base =
+        xdgConfig && path.isAbsolute(xdgConfig) ? xdgConfig : path.join(home, '.config');
+      return path.join(base, 'gg', 'snapshots');
     }
   }
 }

@@ -4,6 +4,7 @@ import { RunCommands } from './commands';
 import { GgHttpCodeLensProvider, GgYamlCodeLensProvider } from './codeLens';
 import { GgYamlDefinitionProvider } from './definitionProvider';
 import { ScaffoldCommands } from './scaffolding';
+import { SnapBrowser } from './snap/snapTreeProvider';
 import { Installer } from './installer';
 import { RatePrompter } from './ratePrompt';
 import { GgRunner } from './runner';
@@ -72,6 +73,9 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	context.subscriptions.push(new ScaffoldCommands());
+
+	// Snapshot browser — Snaps section in the Gopher-Glide panel.
+	context.subscriptions.push(new SnapBrowser(configMgr, installer));
 
 	// 4. Ensure the binary is present / up-to-date, then refresh the status bar.
 	//    Fire-and-forget so activation is never blocked.
