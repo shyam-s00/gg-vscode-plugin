@@ -1,16 +1,16 @@
 import * as vscode from 'vscode';
-import { ConfigManager } from './config';
+import { ConfigManager } from './config/config';
 import { RunCommands } from './commands';
-import { GgHttpCodeLensProvider, GgYamlCodeLensProvider } from './codeLens';
-import { GgYamlDefinitionProvider } from './definitionProvider';
-import { ScaffoldCommands } from './scaffolding';
+import { GgHttpCodeLensProvider, GgYamlCodeLensProvider } from './providers/codeLens';
+import { GgYamlDefinitionProvider } from './providers/definitionProvider';
+import { ScaffoldCommands } from './scaffolding/scaffolding';
 import { initSnapDetailPanel } from './snap/snapDetailPanel';
 import { SnapBrowser } from './snap/snapTreeProvider';
-import { Installer } from './installer';
-import { RatePrompter } from './ratePrompt';
-import { GgRunner } from './runner';
-import { RunPanel } from './runPanel';
-import { StatusBarManager } from './statusBar';
+import { Installer } from './installer/installer';
+import { RatePrompter } from './run/ratePrompt';
+import { GgRunner } from './run/runner';
+import { RunPanel } from './run/runPanel';
+import { StatusBarManager } from './ui/statusBar';
 
 // This method is called when the extension activates
 // (on .http file open or workspace containing .http files).

@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 
-import { buildConfigRunArgs, buildProfileRunArgs } from '../runArgs';
+import { buildConfigRunArgs, buildProfileRunArgs } from '../run/runArgs';
 
 suite('runArgs', () => {
   suite('buildProfileRunArgs', () => {

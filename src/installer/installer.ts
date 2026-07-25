@@ -4,7 +4,7 @@ import * as https from 'https';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import type { ConfigManager } from './config';
+import type { ConfigManager } from '../config/config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants

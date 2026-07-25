@@ -1,8 +1,8 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 
-import { applyExit, applyHeartbeat, applySpawnError, createEmptyState, renderHtml, RunPanelState } from '../runPanel';
-import { HeartbeatPayload, RunExitInfo } from '../runner';
+import { applyExit, applyHeartbeat, applySpawnError, createEmptyState, renderHtml, RunPanelState } from '../run/runPanel';
+import { HeartbeatPayload, RunExitInfo } from '../run/runner';
 
 suite('runPanel state transitions', () => {
   test('createEmptyState starts idle with no stages/points', () => {

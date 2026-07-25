@@ -1,7 +1,7 @@
 import * as childProcess from 'child_process';
 import * as vscode from 'vscode';
 
-import type { ConfigManager } from './config';
+import type { ConfigManager } from '../config/config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal helpers

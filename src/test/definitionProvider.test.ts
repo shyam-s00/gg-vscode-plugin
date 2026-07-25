@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-import { resolveHttpFileFromLine } from '../definitionProvider';
+import { resolveHttpFileFromLine } from '../providers/definitionProvider';
 
 suite('resolveHttpFileFromLine', () => {
   let dir: string;

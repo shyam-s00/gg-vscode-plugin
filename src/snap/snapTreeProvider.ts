@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
-import type { ConfigManager } from '../config';
-import type { Installer } from '../installer';
+import type { ConfigManager } from '../config/config';
+import type { Installer } from '../installer/installer';
 import { handleAssert } from './snapAssertPanel';
 import { loadSnaps, resolveSnapshotsDir } from './snapDataManager';
 import { showSnapDiff } from './snapDiffPanel';
