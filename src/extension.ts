@@ -76,7 +76,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(new ScaffoldCommands());
 
 	// Snapshot browser — Snaps section in the Gopher-Glide panel.
-	initSnapDetailPanel(context.extensionUri);
+	initSnapDetailPanel(context);
 	context.subscriptions.push(new SnapBrowser(configMgr, installer));
 
 	// 4. Ensure the binary is present / up-to-date, then refresh the status bar.

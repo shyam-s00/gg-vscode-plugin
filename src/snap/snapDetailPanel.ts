@@ -15,10 +15,23 @@ import * as vscode from 'vscode';
 
 let _panel: vscode.WebviewPanel | undefined;
 let _extensionUri: vscode.Uri | undefined;
+let _context: vscode.ExtensionContext | undefined;
 
 /** Must be called once during activation, before any snap detail panel is shown. */
-export function initSnapDetailPanel(extensionUri: vscode.Uri): void {
-  _extensionUri = extensionUri;
+export function initSnapDetailPanel(context: vscode.ExtensionContext): void {
+  _context = context;
+  _extensionUri = context.extensionUri;
+}
+
+const SNAP_VIEW_COLUMNS_KEY = 'gg.snapView.columns';
+
+/** Column ids the user last enabled in the snap view table, or undefined if never set. */
+export function getSnapViewColumnPrefs(): string[] | undefined {
+  return _context?.globalState.get<string[]>(SNAP_VIEW_COLUMNS_KEY);
+}
+
+export function setSnapViewColumnPrefs(columns: string[]): void {
+  void _context?.globalState.update(SNAP_VIEW_COLUMNS_KEY, columns);
 }
 
 /**

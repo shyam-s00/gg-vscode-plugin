@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { getSnapDetailPanel } from './snapDetailPanel';
+import { getSnapDetailPanel, getSnapViewColumnPrefs, setSnapViewColumnPrefs } from './snapDetailPanel';
 import { endpointRequestCount } from './snapModel';
 import type { LoadedSnap, SnapEndpoint } from './snapModel';
 
@@ -31,11 +31,21 @@ export function formatEndpointId(id: string): string {
 // Panel
 // ─────────────────────────────────────────────────────────────────────────────
 
+let _msgListener: vscode.Disposable | undefined;
+
 /** Shows a single `.snap` file's contents in the shared snap detail panel. */
 export function showSnapView(snap: LoadedSnap): void {
   const tag = snap.meta.tag.trim() || '(untagged)';
   const panel = getSnapDetailPanel(`Snapshot: ${tag}`);
-  panel.webview.html = buildSnapViewHtml(panel.webview, snap, tag);
+
+  _msgListener?.dispose();
+  _msgListener = panel.webview.onDidReceiveMessage((message: { type?: string; columns?: string[] }) => {
+    if (message?.type === 'columnsChanged' && Array.isArray(message.columns)) {
+      setSnapViewColumnPrefs(message.columns);
+    }
+  });
+
+  panel.webview.html = buildSnapViewHtml(panel.webview, snap, tag, getSnapViewColumnPrefs());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -44,29 +54,75 @@ export function showSnapView(snap: LoadedSnap): void {
 
 interface ViewEndpointData {
   label: string;
+  requests: number;
   errorRate: number;
   errorPct: string;
+  p50: number;
   p95: number;
+  p99: number;
+  max: number;
   payloadAvg: string;
-  requests: number;
+  payloadP95: string;
+  payloadMax: string;
   statusDist: Record<string, number>;
   bodyStored?: number;
   bodyObserved?: number;
   schema?: { fields: Record<string, { type: string; presence: number; stability?: string }> };
 }
 
+/** Toggleable table columns, in display order. "Endpoint" is always shown and isn't part of this list. */
+const COLUMNS: { id: string; label: string }[] = [
+  { id: 'col-requests', label: 'Requests' },
+  { id: 'col-err', label: 'Error Rate' },
+  { id: 'col-p99', label: 'P99' },
+  { id: 'col-p95', label: 'P95' },
+  { id: 'col-p50', label: 'P50' },
+  { id: 'col-max', label: 'Max' },
+  { id: 'col-payload-avg', label: 'Payload Avg' },
+  { id: 'col-payload-p95', label: 'Payload P95' },
+  { id: 'col-payload-max', label: 'Payload Max' },
+];
+
+function cellValue(colId: string, ep: ViewEndpointData): string {
+  switch (colId) {
+    case 'col-requests': return ep.requests.toLocaleString();
+    case 'col-err': return ep.errorPct + '%';
+    case 'col-p99': return ep.p99 + ' ms';
+    case 'col-p95': return ep.p95 + ' ms';
+    case 'col-p50': return ep.p50 + ' ms';
+    case 'col-max': return ep.max + ' ms';
+    case 'col-payload-avg': return ep.payloadAvg;
+    case 'col-payload-p95': return ep.payloadP95;
+    case 'col-payload-max': return ep.payloadMax;
+    default: return '';
+  }
+}
+
 function formatBytes(bytes?: number): string {
   if (bytes === undefined || bytes === null) return '—';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  if (bytes < 1024) return bytes.toFixed(2) + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+/** Formats an ISO timestamp as "Jul 9, 2026 12:38:56" (local time). */
+function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) {
+    return iso.replace('T', ' ');
+  }
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 export function buildSnapViewHtml(
   webview: vscode.Webview,
   snap: LoadedSnap,
   tag: string,
+  savedColumns?: string[],
 ): string {
+  const enabledColumns = new Set(savedColumns && savedColumns.length > 0 ? savedColumns : COLUMNS.map((c) => c.id));
   const nonce = getNonce();
   const csp = [
     "default-src 'none'",
@@ -78,21 +134,26 @@ export function buildSnapViewHtml(
 
   const eps: ViewEndpointData[] = snap.endpoints.map((ep: SnapEndpoint) => ({
     label: formatEndpointId(ep.id),
+    requests: endpointRequestCount(ep),
     errorRate: ep.error_rate || 0,
     errorPct: (ep.error_rate * 100).toFixed(2),
+    p50: ep.latency.p50,
     p95: ep.latency.p95,
+    p99: ep.latency.p99,
+    max: ep.latency.max,
     payloadAvg: formatBytes(ep.payload_size?.avg),
-    requests: endpointRequestCount(ep),
+    payloadP95: formatBytes(ep.payload_size?.p95),
+    payloadMax: formatBytes(ep.payload_size?.max),
     statusDist: ep.status_dist || {},
     bodyStored: ep.body_samples_stored,
     bodyObserved: ep.body_samples_observed,
     schema: ep.schema ? { fields: ep.schema.fields } : undefined,
   }));
 
-  const startTime = snap.meta.start_time.replace('T', ' ');
+  const startTime = formatDateTime(snap.meta.start_time);
   const configHash = snap.meta.config_hash ? snap.meta.config_hash.substring(0, 12) + '...' : '—';
-  const sampling = snap.meta.snap_settings?.sample_rate !== undefined 
-    ? (snap.meta.snap_settings.sample_rate * 100) + '%' 
+  const sampling = snap.meta.snap_settings?.sample_rate !== undefined
+    ? (snap.meta.snap_settings.sample_rate * 100) + '%'
     : '—';
 
   return /* html */ `<!DOCTYPE html>
@@ -114,8 +175,8 @@ export function buildSnapViewHtml(
   .header-item .label { font-size: 10px; font-weight: 600; color: var(--vscode-descriptionForeground); text-transform: uppercase; letter-spacing: 0.5px; }
   .header-item .value { font-size: 13px; font-weight: 500; }
   
-  /* Toolbar styling */
-  .toolbar { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; position: relative; }
+  /* Toolbar styling — scoped to the left (endpoint list) pane only */
+  .toolbar { display: flex; gap: 8px; padding: 10px 12px; align-items: center; position: relative; flex: none; border-bottom: 1px solid var(--vscode-panel-border); }
   .search-box { flex: 1; display: flex; align-items: center; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); border-radius: 2px; padding: 4px 8px; }
   .search-box input { flex: 1; background: transparent; border: none; color: var(--vscode-input-foreground); font-family: inherit; font-size: 12px; outline: none; }
   .search-box input::placeholder { color: var(--vscode-input-placeholderForeground); }
@@ -130,7 +191,8 @@ export function buildSnapViewHtml(
   /* Main split pane */
   .split { display: flex; gap: 0; flex: 1; overflow: hidden; border: 1px solid var(--vscode-panel-border); border-radius: 4px; }
   .pane { overflow: auto; }
-  .left { width: 55%; min-width: 200px; max-width: 80%; flex: none; border-right: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); display: flex; flex-direction: column; }
+  .left { width: 55%; min-width: 200px; max-width: 80%; flex: none; border-right: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); display: flex; flex-direction: column; overflow: hidden; }
+  .left .table-wrap { flex: 1; overflow: auto; }
   .right { flex: 1; min-width: 200px; display: flex; flex-direction: column; background: var(--vscode-editorWidget-background); overflow: hidden; }
   
   /* Horizontal Drag Resizer */
@@ -142,10 +204,14 @@ export function buildSnapViewHtml(
   .v-resizer:hover, .v-resizer.v-dragging { background: var(--vscode-focusBorder, #007acc); }
 
   /* Table styling */
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { background: var(--vscode-editor-background); padding: 8px 12px; text-align: left; font-weight: 600; position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--vscode-panel-border); white-space: nowrap; }
-  td { padding: 6px 12px; border-bottom: 1px solid var(--vscode-panel-border); white-space: nowrap; }
-  
+  table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+  th { background: var(--vscode-editor-background); padding: 8px 12px; text-align: left; font-weight: 600; position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--vscode-panel-border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  td { padding: 6px 12px; border-bottom: 1px solid var(--vscode-panel-border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Column resize handles */
+  .col-resize-handle { position: absolute; top: 0; right: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 2; user-select: none; }
+  .col-resize-handle:hover, .col-resize-handle.resizing { background: var(--vscode-focusBorder, #007acc); }
+
   .ep-row { cursor: pointer; }
   .ep-row:hover:not(.selected) { background: var(--vscode-list-hoverBackground); }
   .ep-row.selected { background: #0060C0; color: #ffffff; }
@@ -193,20 +259,20 @@ export function buildSnapViewHtml(
       <div class="value">${escHtml(startTime)}</div>
     </div>
     <div class="header-item">
-      <div class="label">PROFILE</div>
-      <div class="value">(legacy — no profile recorded)</div>
-    </div>
-    <div class="header-item">
       <div class="label">TOTAL REQUESTS</div>
       <div class="value">${snap.meta.total_requests.toLocaleString()}</div>
     </div>
     <div class="header-item">
-      <div class="label">CONFIG HASH</div>
-      <div class="value">${configHash}</div>
-    </div>
-    <div class="header-item">
       <div class="label">PEAK RPS</div>
       <div class="value">${snap.meta.peak_rps.toFixed(1)} r/s</div>
+    </div>
+    <div class="header-item">
+      <div class="label">PROFILE</div>
+      <div class="value">(legacy — no profile recorded)</div>
+    </div>
+    <div class="header-item">
+      <div class="label">CONFIG HASH</div>
+      <div class="value">${configHash}</div>
     </div>
     <div class="header-item">
       <div class="label">SAMPLING</div>
@@ -215,39 +281,34 @@ export function buildSnapViewHtml(
   </div>
 </div>
 
-<div class="toolbar">
-  <div class="search-box">
-    <span style="opacity: 0.5; margin-right: 6px;">🔍</span>
-    <input type="text" id="searchInput" placeholder="Filter endpoints..." />
-  </div>
-  <button class="btn" id="columnsBtn">Columns ▾</button>
-  <div class="columns-menu" id="columnsMenu">
-    <label><input type="checkbox" checked data-col="col-err"> Error Rate</label>
-    <label><input type="checkbox" checked data-col="col-p95"> P95 Latency</label>
-    <label><input type="checkbox" checked data-col="col-payload"> Payload Avg</label>
-  </div>
-</div>
-
 <div class="split" id="splitPane">
   <div class="pane left" id="leftPane">
-    <table id="mainTable">
-      <thead><tr>
-        <th>Endpoint</th>
-        <th class="col-err">Error Rate</th>
-        <th class="col-p95">P95</th>
-        <th class="col-payload">Payload Avg</th>
-      </tr></thead>
-      <tbody id="epTable">
-        ${eps.map((ep, i) => `
-        <tr class="ep-row" data-idx="${i}" data-search="${escHtml(ep.label.toLowerCase())}">
-          <td class="id-cell" title="${escHtml(ep.label)}">${escHtml(ep.label)}</td>
-          <td class="col-err">${ep.errorPct}%</td>
-          <td class="col-p95">${ep.p95} ms</td>
-          <td class="col-payload">${ep.payloadAvg}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
-    ${eps.length === 0 ? '<div class="empty">No endpoints recorded in this snapshot.</div>' : ''}
+    <div class="toolbar">
+      <div class="search-box">
+        <span style="opacity: 0.5; margin-right: 6px;">🔍</span>
+        <input type="text" id="searchInput" placeholder="Filter endpoints..." />
+      </div>
+      <button class="btn" id="columnsBtn">Columns ▾</button>
+      <div class="columns-menu" id="columnsMenu">
+        ${COLUMNS.map((c) => `<label><input type="checkbox" ${enabledColumns.has(c.id) ? 'checked' : ''} data-col="${c.id}"> ${escHtml(c.label)}</label>`).join('')}
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="mainTable">
+        <thead><tr>
+          <th>Endpoint</th>
+          ${COLUMNS.map((c) => `<th class="${c.id}"${enabledColumns.has(c.id) ? '' : ' style="display:none"'}>${escHtml(c.label)}</th>`).join('')}
+        </tr></thead>
+        <tbody id="epTable">
+          ${eps.map((ep, i) => `
+          <tr class="ep-row" data-idx="${i}" data-search="${escHtml(ep.label.toLowerCase())}">
+            <td class="id-cell" title="${escHtml(ep.label)}">${escHtml(ep.label)}</td>
+            ${COLUMNS.map((c) => `<td class="${c.id}"${enabledColumns.has(c.id) ? '' : ' style="display:none"'}>${cellValue(c.id, ep)}</td>`).join('')}
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      ${eps.length === 0 ? '<div class="empty">No endpoints recorded in this snapshot.</div>' : ''}
+    </div>
   </div>
   <div class="resizer" id="dragResizer"></div>
   <div class="pane right" id="detail">
@@ -257,9 +318,52 @@ export function buildSnapViewHtml(
 
 <script nonce="${nonce}">
 (function () {
+  const vscodeApi = acquireVsCodeApi();
   const eps = ${JSON.stringify(eps)};
 
   function pct(n) { return (n * 100).toFixed(0) + '%'; }
+
+  // Makes each <th> in a table individually drag-resizable. Freezes the
+  // browser's auto-computed widths first so switching to table-layout:fixed
+  // doesn't reflow the initial render.
+  function initResizableColumns(table) {
+    if (!table || table.dataset.resizableInit) return;
+    table.dataset.resizableInit = '1';
+    const ths = Array.from(table.querySelectorAll('thead th'));
+    ths.forEach(th => {
+      th.style.width = (th.offsetWidth || 120) + 'px';
+      const handle = document.createElement('span');
+      handle.className = 'col-resize-handle';
+      th.appendChild(handle);
+
+      let startX = 0;
+      let startWidth = 0;
+
+      const onMove = (ev) => {
+        const newWidth = Math.max(40, startWidth + (ev.clientX - startX));
+        th.style.width = newWidth + 'px';
+      };
+      const onUp = () => {
+        handle.classList.remove('resizing');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        startX = e.clientX;
+        startWidth = th.offsetWidth;
+        handle.classList.add('resizing');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    });
+  }
   
   function escHtml(s) {
     if (!s) return '';
@@ -397,6 +501,7 @@ export function buildSnapViewHtml(
 
     detail.innerHTML = html;
     initVResizer();
+    initResizableColumns(detail.querySelector('.schema-table'));
   }
 
   function initVResizer() {
@@ -488,6 +593,10 @@ export function buildSnapViewHtml(
         document.querySelectorAll('.' + colClass).forEach(el => {
           el.style.display = show ? '' : 'none';
         });
+        const enabled = Array.from(columnsMenu.querySelectorAll('input'))
+          .filter(i => i.checked)
+          .map(i => i.getAttribute('data-col'));
+        vscodeApi.postMessage({ type: 'columnsChanged', columns: enabled });
       });
     });
   }
@@ -521,6 +630,8 @@ export function buildSnapViewHtml(
       }
     });
   }
+
+  initResizableColumns(document.getElementById('mainTable'));
 
   if (eps.length > 0) {
     document.querySelector('.ep-row')?.click();
