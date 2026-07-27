@@ -268,7 +268,7 @@ export function buildSnapViewHtml(
     </div>
     <div class="header-item">
       <div class="label">PROFILE</div>
-      <div class="value">(legacy — no profile recorded)</div>
+      <div class="value">${escHtml(snap.meta.profile_name || '(legacy — no profile recorded)')}</div>
     </div>
     <div class="header-item">
       <div class="label">CONFIG HASH</div>

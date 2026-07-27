@@ -4,7 +4,7 @@ import * as https from 'https';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import type { ConfigManager } from '../config/config';
+import { MANAGED_BINARY_PATH_KEY, type ConfigManager } from '../config/config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -534,15 +534,37 @@ export class Installer implements vscode.Disposable {
   }
 
   /**
-   * Persists the managed binary path into `gg.binaryPath` (global scope)
-   * so `effectiveBinaryPath` picks it up immediately — but only when the
-   * user hasn't set a manual override.
+   * Persists the managed binary path into `gg.binaryPath` (global scope) so
+   * `effectiveBinaryPath` picks it up immediately.
+   *
+   * Runs after every successful managed install (auto-install, or a
+   * user-confirmed "Download Now" / "Update Now"), so it always repoints
+   * `gg.binaryPath` at the binary we *just* installed — including when the
+   * setting already held a *previously* managed path (e.g. one left behind
+   * by an earlier extension identity/globalStorage location, which would
+   * otherwise silently go stale: downloads keep landing in the new location
+   * while the setting keeps the old one active, so updates never appear to
+   * "take" after a restart). A path the user picked by hand via
+   * `gg.selectBinaryPath` is never touched — `MANAGED_BINARY_PATH_KEY` is
+   * cleared there specifically to protect it.
+   *
+   * The flag defaults to `true` (not `false`) when unset, because every
+   * pre-existing install already has *some* `binaryPath` value the first
+   * time this runs post-fix — defaulting to "manual override" would treat
+   * that legacy value as untouchable and skip the repoint on the very
+   * update that was supposed to fix it, only self-healing on a second,
+   * unrelated update attempt.
    */
   private async _persistStoragePath(): Promise<void> {
-    if (!this.configMgr.config.binaryPath) {
+    const current = this.configMgr.config.binaryPath;
+    const isManaged = !current || this.context.globalState.get<boolean>(MANAGED_BINARY_PATH_KEY, true);
+
+    if (isManaged && current !== this._storageBinPath) {
       await vscode.workspace
         .getConfiguration('gg')
         .update('binaryPath', this._storageBinPath, vscode.ConfigurationTarget.Global);
     }
+
+    await this.context.globalState.update(MANAGED_BINARY_PATH_KEY, true);
   }
 }

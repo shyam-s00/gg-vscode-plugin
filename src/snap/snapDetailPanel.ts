@@ -24,6 +24,7 @@ export function initSnapDetailPanel(context: vscode.ExtensionContext): void {
 }
 
 const SNAP_VIEW_COLUMNS_KEY = 'gg.snapView.columns';
+const SNAP_DIFF_COLUMNS_KEY = 'gg.snapDiff.columns';
 
 /** Column ids the user last enabled in the snap view table, or undefined if never set. */
 export function getSnapViewColumnPrefs(): string[] | undefined {
@@ -32,6 +33,15 @@ export function getSnapViewColumnPrefs(): string[] | undefined {
 
 export function setSnapViewColumnPrefs(columns: string[]): void {
   void _context?.globalState.update(SNAP_VIEW_COLUMNS_KEY, columns);
+}
+
+/** Column ids the user last enabled in the snap diff table, or undefined if never set. */
+export function getSnapDiffColumnPrefs(): string[] | undefined {
+  return _context?.globalState.get<string[]>(SNAP_DIFF_COLUMNS_KEY);
+}
+
+export function setSnapDiffColumnPrefs(columns: string[]): void {
+  void _context?.globalState.update(SNAP_DIFF_COLUMNS_KEY, columns);
 }
 
 /**

@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 
-import { getSnapDetailPanel } from './snapDetailPanel';
+import { getSnapDetailPanel, getSnapDiffColumnPrefs, setSnapDiffColumnPrefs } from './snapDetailPanel';
 import { formatEndpointId } from './snapViewPanel';
+import { endpointRequestCount } from './snapModel';
 import type { LoadedSnap, SnapEndpoint } from './snapModel';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,6 +114,8 @@ export function computeDiff(
 // Panel
 // ─────────────────────────────────────────────────────────────────────────────
 
+let _msgListener: vscode.Disposable | undefined;
+
 export function showSnapDiff(a: LoadedSnap, b: LoadedSnap): void {
   const [baseline, compare] =
     a.meta.start_time <= b.meta.start_time ? [a, b] : [b, a];
@@ -121,7 +124,15 @@ export function showSnapDiff(a: LoadedSnap, b: LoadedSnap): void {
   const cTag = compare.meta.tag.trim() || '(untagged)';
 
   const panel = getSnapDetailPanel(`Diff: ${bTag} ↔ ${cTag}`);
-  panel.webview.html = buildSnapDiffHtml(panel.webview, baseline, compare, bTag, cTag);
+
+  _msgListener?.dispose();
+  _msgListener = panel.webview.onDidReceiveMessage((message: { type?: string; columns?: string[] }) => {
+    if (message?.type === 'columnsChanged' && Array.isArray(message.columns)) {
+      setSnapDiffColumnPrefs(message.columns);
+    }
+  });
+
+  panel.webview.html = buildSnapDiffHtml(panel.webview, baseline, compare, bTag, cTag, getSnapDiffColumnPrefs());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -130,9 +141,9 @@ export function showSnapDiff(a: LoadedSnap, b: LoadedSnap): void {
 
 function formatBytes(bytes?: number): string {
   if (bytes === undefined || bytes === null) return '—';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  if (bytes < 1024) return bytes.toFixed(2) + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
 }
 
 function formatLatency(ms: number | undefined): string {
@@ -145,18 +156,93 @@ function formatPct(frac: number | undefined): string {
   return (frac * 100).toFixed(2) + '%';
 }
 
+/** Toggleable diff table columns, in display order. "Endpoint" is always shown and isn't part of this list. */
+const COLUMNS: { id: string; label: string; higherIsBad: boolean }[] = [
+  { id: 'col-requests', label: 'Requests', higherIsBad: false },
+  { id: 'col-err', label: 'Error Rate', higherIsBad: true },
+  { id: 'col-p99', label: 'P99', higherIsBad: true },
+  { id: 'col-p95', label: 'P95', higherIsBad: true },
+  { id: 'col-p50', label: 'P50', higherIsBad: true },
+  { id: 'col-max', label: 'Max', higherIsBad: true },
+  { id: 'col-payload-avg', label: 'Payload Avg', higherIsBad: true },
+  { id: 'col-payload-p95', label: 'Payload P95', higherIsBad: true },
+  { id: 'col-payload-max', label: 'Payload Max', higherIsBad: true },
+];
+
+function getMetricValue(colId: string, ep?: SnapEndpoint): number | undefined {
+  if (!ep) return undefined;
+  switch (colId) {
+    case 'col-requests': return endpointRequestCount(ep);
+    case 'col-err': return ep.error_rate ?? 0;
+    case 'col-p99': return ep.latency.p99;
+    case 'col-p95': return ep.latency.p95;
+    case 'col-p50': return ep.latency.p50;
+    case 'col-max': return ep.latency.max;
+    case 'col-payload-avg': return ep.payload_size?.avg;
+    case 'col-payload-p95': return ep.payload_size?.p95;
+    case 'col-payload-max': return ep.payload_size?.max;
+    default: return undefined;
+  }
+}
+
+function formatMetricValue(colId: string, val: number | undefined): string {
+  if (val === undefined) return '—';
+  switch (colId) {
+    case 'col-requests': return val.toLocaleString();
+    case 'col-err': return formatPct(val);
+    case 'col-p99': case 'col-p95': case 'col-p50': case 'col-max': return formatLatency(val);
+    case 'col-payload-avg': case 'col-payload-p95': case 'col-payload-max': return formatBytes(val);
+    default: return String(val);
+  }
+}
+
+/**
+ * Renders a diff table cell as the target value plus a delta indicator
+ * (▲/▼ with the signed change), instead of a "baseline → target" pair.
+ * ADDED/REMOVED endpoints still get a NEW/GONE badge.
+ */
+function deltaCell(colId: string, higherIsBad: boolean, baseline?: SnapEndpoint, compare?: SnapEndpoint): string {
+  const baseVal = getMetricValue(colId, baseline);
+  const cmpVal = getMetricValue(colId, compare);
+
+  if (baseVal === undefined && cmpVal === undefined) return '—';
+  if (baseVal === undefined) {
+    return '<span class="diff-badge-added">NEW</span> ' + formatMetricValue(colId, cmpVal);
+  }
+  if (cmpVal === undefined) {
+    return formatMetricValue(colId, baseVal) + ' <span class="diff-badge-removed">GONE</span>';
+  }
+
+  const delta = cmpVal - baseVal;
+  const title = escHtml(`${formatMetricValue(colId, baseVal)} → ${formatMetricValue(colId, cmpVal)}`);
+
+  if (Math.abs(delta) < 1e-9) {
+    return `<span title="${title}">${formatMetricValue(colId, cmpVal)}</span>`;
+  }
+
+  const isIncrease = delta > 0;
+  const cls = !higherIsBad ? 'diff-arrow-neutral' : (isIncrease ? 'diff-arrow-up' : 'diff-arrow-down');
+  const arrow = isIncrease ? '▲' : '▼';
+  const sign = isIncrease ? '+' : '-';
+  const deltaFormatted = sign + formatMetricValue(colId, Math.abs(delta));
+
+  return `<span class="${cls}" title="${title}">${arrow} ${deltaFormatted}</span>`;
+}
+
 export function buildSnapDiffHtml(
   arg1: any,
   arg2: any,
   arg3?: any,
   arg4?: any,
-  arg5?: any
+  arg5?: any,
+  arg6?: any,
 ): string {
   let webview: any;
   let baseline: LoadedSnap;
   let compare: LoadedSnap;
   let bTag: string;
   let cTag: string;
+  let savedColumns: string[] | undefined;
 
   if (arg1 && arg1.cspSource) {
     webview = arg1;
@@ -164,13 +250,16 @@ export function buildSnapDiffHtml(
     compare = arg3;
     bTag = arg4;
     cTag = arg5;
+    savedColumns = arg6;
   } else {
     webview = { cspSource: "'self'" };
     baseline = arg1;
     compare = arg2;
     bTag = arg3;
     cTag = arg4;
+    savedColumns = undefined;
   }
+  const enabledColumns = new Set(savedColumns && savedColumns.length > 0 ? savedColumns : COLUMNS.map((c) => c.id));
 
   const nonce = getNonce();
   const csp = [
@@ -226,7 +315,8 @@ export function buildSnapDiffHtml(
   .dot-added { background: #58a6ff; }
   .dot-removed { background: #8b949e; }
   
-  .toolbar { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; position: relative; }
+  /* Toolbar styling — scoped to the left (endpoint list) pane only */
+  .toolbar { display: flex; gap: 8px; padding: 10px 12px; align-items: center; position: relative; flex: none; border-bottom: 1px solid var(--vscode-panel-border); }
   .search-box { flex: 1; display: flex; align-items: center; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); border-radius: 2px; padding: 4px 8px; }
   .search-box input { flex: 1; background: transparent; border: none; color: var(--vscode-input-foreground); font-family: inherit; font-size: 12px; outline: none; }
   .search-box input::placeholder { color: var(--vscode-input-placeholderForeground); }
@@ -240,7 +330,8 @@ export function buildSnapDiffHtml(
 
   .split { display: flex; gap: 0; flex: 1; overflow: hidden; border: 1px solid var(--vscode-panel-border); border-radius: 4px; }
   .pane { overflow: auto; }
-  .left { width: 55%; min-width: 200px; max-width: 80%; flex: none; border-right: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); display: flex; flex-direction: column; }
+  .left { width: 55%; min-width: 200px; max-width: 80%; flex: none; border-right: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); display: flex; flex-direction: column; overflow: hidden; }
+  .left .table-wrap { flex: 1; overflow: auto; }
   .right { flex: 1; min-width: 200px; display: flex; flex-direction: column; background: var(--vscode-editorWidget-background); overflow: hidden; }
   
   /* Horizontal Drag Resizer */
@@ -251,21 +342,24 @@ export function buildSnapDiffHtml(
   .v-resizer { height: 6px; background: var(--vscode-panel-border); cursor: row-resize; flex: none; user-select: none; transition: background 0.15s; z-index: 10; }
   .v-resizer:hover, .v-resizer.v-dragging { background: var(--vscode-focusBorder, #007acc); }
 
-  .table-container { flex: 1; overflow: auto; }
-  
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { background: var(--vscode-editor-background); padding: 8px 12px; text-align: left; font-weight: 600; position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--vscode-panel-border); white-space: nowrap; }
-  td { padding: 6px 12px; border-bottom: 1px solid var(--vscode-panel-border); white-space: nowrap; }
-  
+  table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+  th { background: var(--vscode-editor-background); padding: 8px 12px; text-align: left; font-weight: 600; position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--vscode-panel-border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  td { padding: 6px 12px; border-bottom: 1px solid var(--vscode-panel-border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Column resize handles */
+  .col-resize-handle { position: absolute; top: 0; right: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 2; user-select: none; }
+  .col-resize-handle:hover, .col-resize-handle.resizing { background: var(--vscode-focusBorder, #007acc); }
+
   .ep-row { cursor: pointer; }
   .ep-row:hover:not(.selected) { background: var(--vscode-list-hoverBackground); }
   .ep-row.selected { background: #0060C0; color: #ffffff; }
   td.id-cell { font-family: var(--vscode-editor-font-family); font-size: 12px; }
-  
+
   .row-removed { color: var(--vscode-descriptionForeground); opacity: 0.7; }
   .row-added { color: #58a6ff; }
-  .diff-arrow-up { color: #f85149; font-weight: bold; margin-left: 4px; }
-  .diff-arrow-down { color: #3fb950; font-weight: bold; margin-left: 4px; }
+  .diff-arrow-up { color: #f85149; font-weight: bold; }
+  .diff-arrow-down { color: #3fb950; font-weight: bold; }
+  .diff-arrow-neutral { color: var(--vscode-descriptionForeground); font-weight: bold; }
   .diff-badge-added { background: #1f6beb; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
   .diff-badge-removed { background: #484f58; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
   
@@ -284,7 +378,9 @@ export function buildSnapDiffHtml(
   
   .status-dist-container { flex: 1; min-height: 100px; overflow: auto; border-top: 1px solid var(--vscode-panel-border); display: flex; flex-direction: column; }
   .status-dist-header { padding: 8px 12px; font-size: 12px; font-weight: 600; flex: none; }
-  .status-dist-body { padding: 0 12px 12px 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; overflow: auto; }
+  .status-dist-body { padding: 0 12px 12px 12px; display: flex; flex-direction: row; gap: 16px; flex: 1; overflow: auto; }
+  .status-dist-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  .status-dist-col + .status-dist-col { border-left: 1px solid var(--vscode-panel-border); padding-left: 16px; }
   .status-dist-subhead { font-size: 11px; font-weight: 600; color: var(--vscode-descriptionForeground); text-transform: uppercase; margin-top: 4px; margin-bottom: 2px; }
   .status-code-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
   .status-code-label { width: 45px; font-weight: 600; font-family: var(--vscode-editor-font-family); }
@@ -311,7 +407,8 @@ ${mismatchWarning ? `<div class="warning-banner">Configuration mismatch: snapsho
     <tr><td>Date / Time</td><td>${escHtml(bStart)}</td><td>${escHtml(cStart)}</td></tr>
     <tr><td>Total Requests</td><td>${baseline.meta.total_requests.toLocaleString()}</td><td>${compare.meta.total_requests.toLocaleString()}</td></tr>
     <tr><td>Peak RPS</td><td>${baseline.meta.peak_rps.toFixed(1)} r/s</td><td>${compare.meta.peak_rps.toFixed(1)} r/s</td></tr>
-    <tr><td>Profile</td><td>config: ${bHash}</td><td>config: ${cHash}</td></tr>
+    <tr><td>Profile</td><td>${escHtml(baseline.meta.profile_name || '—')}</td><td>${escHtml(compare.meta.profile_name || '—')}</td></tr>
+    <tr><td>Config Hash</td><td>${bHash}</td><td>${cHash}</td></tr>
   </tbody>
 </table>
 
@@ -323,29 +420,24 @@ ${mismatchWarning ? `<div class="warning-banner">Configuration mismatch: snapsho
   <div class="legend-item"><span class="dot dot-removed"></span> Removed</div>
 </div>
 
-<div class="toolbar">
-  <div class="search-box">
-    <span style="opacity: 0.5; margin-right: 6px;">🔍</span>
-    <input type="text" id="searchInput" placeholder="Filter endpoints..." />
-  </div>
-  <button class="btn" id="columnsBtn">Columns ▾</button>
-  <div class="columns-menu" id="columnsMenu">
-    <label><input type="checkbox" checked data-col="col-err"> Error Rate</label>
-    <label><input type="checkbox" checked data-col="col-p95"> P95 Latency</label>
-    <label><input type="checkbox" checked data-col="col-payload"> Payload Max</label>
-  </div>
-</div>
-
 <div class="split" id="splitPane">
   <div class="pane left" id="leftPane">
-    <div class="table-container">
+    <div class="toolbar">
+      <div class="search-box">
+        <span style="opacity: 0.5; margin-right: 6px;">🔍</span>
+        <input type="text" id="searchInput" placeholder="Filter endpoints..." />
+      </div>
+      <button class="btn" id="columnsBtn">Columns ▾</button>
+      <div class="columns-menu" id="columnsMenu">
+        ${COLUMNS.map((c) => `<label><input type="checkbox" ${enabledColumns.has(c.id) ? 'checked' : ''} data-col="${c.id}"> ${escHtml(c.label)}</label>`).join('')}
+      </div>
+    </div>
+    <div class="table-wrap">
       <table id="mainTable">
         <thead>
           <tr>
             <th>Endpoint</th>
-            <th class="col-err">Error Rate</th>
-            <th class="col-p95">P95</th>
-            <th class="col-payload">Payload Max</th>
+            ${COLUMNS.map((c) => `<th class="${c.id}"${enabledColumns.has(c.id) ? '' : ' style="display:none"'}>${escHtml(c.label)}</th>`).join('')}
           </tr>
         </thead>
         <tbody id="epTable">
@@ -353,25 +445,11 @@ ${mismatchWarning ? `<div class="warning-banner">Configuration mismatch: snapsho
             let rowClass = 'ep-row';
             if (d.state === 'REMOVED') rowClass += ' row-removed';
             if (d.state === 'ADDED') rowClass += ' row-added';
-            
-            let errHtml = formatPct(d.baseline?.error_rate) + ' → ' + formatPct(d.compare?.error_rate);
-            if (d.state === 'REMOVED') errHtml = formatPct(d.baseline?.error_rate) + ' <span class="diff-badge-removed">GONE</span>';
-            if (d.state === 'ADDED') errHtml = '<span class="diff-badge-added">ADDED</span> ' + formatPct(d.compare?.error_rate);
-
-            let p95Html = formatLatency(d.baseline?.latency?.p95) + ' → ' + formatLatency(d.compare?.latency?.p95);
-            if (d.state === 'REMOVED') p95Html = formatLatency(d.baseline?.latency?.p95) + ' → —';
-            if (d.state === 'ADDED') p95Html = '— → ' + formatLatency(d.compare?.latency?.p95);
-
-            let payloadHtml = formatBytes(d.baseline?.payload_size?.max) + ' → ' + formatBytes(d.compare?.payload_size?.max);
-            if (d.state === 'REMOVED') payloadHtml = formatBytes(d.baseline?.payload_size?.max) + ' → —';
-            if (d.state === 'ADDED') payloadHtml = '— → ' + formatBytes(d.compare?.payload_size?.max);
 
             return `
             <tr class="${rowClass}" data-idx="${i}" data-search="${escHtml(d.label.toLowerCase())}">
               <td class="id-cell" title="${escHtml(d.label)}">${escHtml(d.label)}</td>
-              <td class="col-err">${errHtml}</td>
-              <td class="col-p95">${p95Html}</td>
-              <td class="col-payload">${payloadHtml}</td>
+              ${COLUMNS.map((c) => `<td class="${c.id}"${enabledColumns.has(c.id) ? '' : ' style="display:none"'}>${deltaCell(c.id, c.higherIsBad, d.baseline, d.compare)}</td>`).join('')}
             </tr>`;
           }).join('')}
         </tbody>
@@ -386,10 +464,53 @@ ${mismatchWarning ? `<div class="warning-banner">Configuration mismatch: snapsho
 
 <script nonce="${nonce}">
 (function () {
+  const vscodeApi = acquireVsCodeApi();
   const diffs = ${JSON.stringify(diffs)};
 
   function pct(n) { return (n * 100).toFixed(0) + '%'; }
-  
+
+  // Makes each <th> in a table individually drag-resizable. Freezes the
+  // browser's auto-computed widths first so switching to table-layout:fixed
+  // doesn't reflow the initial render.
+  function initResizableColumns(table) {
+    if (!table || table.dataset.resizableInit) return;
+    table.dataset.resizableInit = '1';
+    const ths = Array.from(table.querySelectorAll('thead th'));
+    ths.forEach(th => {
+      th.style.width = (th.offsetWidth || 120) + 'px';
+      const handle = document.createElement('span');
+      handle.className = 'col-resize-handle';
+      th.appendChild(handle);
+
+      let startX = 0;
+      let startWidth = 0;
+
+      const onMove = (ev) => {
+        const newWidth = Math.max(40, startWidth + (ev.clientX - startX));
+        th.style.width = newWidth + 'px';
+      };
+      const onUp = () => {
+        handle.classList.remove('resizing');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        startX = e.clientX;
+        startWidth = th.offsetWidth;
+        handle.classList.add('resizing');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    });
+  }
+
   function escHtml(s) {
     if (!s) return '';
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -546,21 +667,24 @@ ${mismatchWarning ? `<div class="warning-banner">Configuration mismatch: snapsho
     html += '<div class="status-dist-container" id="statusContainer">';
     html += '<div class="status-dist-header">Status Code Distribution</div>';
     html += '<div class="status-dist-body">';
-    
+
     const baseRes = renderStatusBlock('Baseline', epDiff.baseStatus, epDiff.baseErrorRate);
     const cmpRes = renderStatusBlock('Target', epDiff.cmpStatus, epDiff.cmpErrorRate);
-    
-    html += baseRes.html;
-    html += cmpRes.html;
-    
+
+    html += '<div class="status-dist-col">' + baseRes.html + '</div>';
+    html += '<div class="status-dist-col">' + cmpRes.html + '</div>';
+
+    html += '</div>';
+
     if (baseRes.hasErr || cmpRes.hasErr) {
-      html += '<div style="margin-top: 8px; font-size: 11px; color: var(--vscode-descriptionForeground); font-style: italic;">* ERR - connection failures (timeouts, refused, DNS) with no HTTP status code</div>';
+      html += '<div style="padding: 0 12px 12px; font-size: 11px; color: var(--vscode-descriptionForeground); font-style: italic;">* ERR - connection failures (timeouts, refused, DNS) with no HTTP status code</div>';
     }
-    
-    html += '</div></div>';
+
+    html += '</div>';
 
     detail.innerHTML = html;
     initVResizer();
+    initResizableColumns(detail.querySelector('.schema-table'));
   }
 
   function initVResizer() {
@@ -655,6 +779,10 @@ ${mismatchWarning ? `<div class="warning-banner">Configuration mismatch: snapsho
         document.querySelectorAll('.' + colClass).forEach(el => {
           el.style.display = show ? '' : 'none';
         });
+        const enabled = Array.from(columnsMenu.querySelectorAll('input'))
+          .filter(i => i.checked)
+          .map(i => i.getAttribute('data-col'));
+        vscodeApi.postMessage({ type: 'columnsChanged', columns: enabled });
       });
     });
   }
@@ -688,6 +816,8 @@ ${mismatchWarning ? `<div class="warning-banner">Configuration mismatch: snapsho
       }
     });
   }
+
+  initResizableColumns(document.getElementById('mainTable'));
 
   if (diffs.length > 0) {
     document.querySelector('.ep-row')?.click();
