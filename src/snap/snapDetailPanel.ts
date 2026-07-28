@@ -23,6 +23,14 @@ export function initSnapDetailPanel(context: vscode.ExtensionContext): void {
   _extensionUri = context.extensionUri;
 }
 
+/** The extension's root URI, needed to resolve webview asset URIs (css/js). */
+export function getExtensionUri(): vscode.Uri {
+  if (!_extensionUri) {
+    throw new Error('getExtensionUri() called before initSnapDetailPanel()');
+  }
+  return _extensionUri;
+}
+
 const SNAP_VIEW_COLUMNS_KEY = 'gg.snapView.columns';
 const SNAP_DIFF_COLUMNS_KEY = 'gg.snapDiff.columns';
 

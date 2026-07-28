@@ -1,12 +1,13 @@
 import * as assert from 'assert';
+import * as path from 'path';
 import * as vscode from 'vscode';
 
 import {
   buildAssertArgs,
   buildAssertResultHtml,
   parseAssertResult,
-} from '../snap/snapAssertPanel';
-import type { AssertOptions, AssertResult } from '../snap/snapAssertPanel';
+} from '../snap/assert/panel';
+import type { AssertOptions, AssertResult } from '../snap/assert/panel';
 import type { LoadedSnap } from '../snap/snapModel';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,6 +34,14 @@ function makeSnap(tag: string, filePath: string): LoadedSnap {
 
 const BASELINE = makeSnap('v1.0', '/snaps/v1.snap');
 const COMPARE = makeSnap('v2.0', '/snaps/v2.snap');
+
+const FAKE_WEBVIEW = {
+  cspSource: 'vscode-webview://fake',
+  asWebviewUri: (uri: vscode.Uri) => uri,
+} as unknown as vscode.Webview;
+// Must be a real path — readTemplate() reads dist/<relDir>/view.html from it,
+// and `pretest` builds dist/ before the test run.
+const FAKE_EXTENSION_URI = vscode.Uri.file(path.join(__dirname, '..', '..'));
 
 const PASSED_RESULT: AssertResult = { passed: true, violations: [] };
 const FAILED_RESULT: AssertResult = {
@@ -134,38 +143,38 @@ suite('buildAssertArgs', () => {
 
 suite('buildAssertResultHtml', () => {
   test('shows "passed" content for a clean result', () => {
-    const html = buildAssertResultHtml(BASELINE, COMPARE, PASSED_RESULT, DEFAULT_OPTS);
+    const html = buildAssertResultHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, BASELINE, COMPARE, PASSED_RESULT, DEFAULT_OPTS);
     assert.ok(html.includes('passed'));
     assert.ok(!html.includes('REGRESSION'));
   });
 
   test('shows violation rows for a failed result', () => {
-    const html = buildAssertResultHtml(BASELINE, COMPARE, FAILED_RESULT, DEFAULT_OPTS);
+    const html = buildAssertResultHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, BASELINE, COMPARE, FAILED_RESULT, DEFAULT_OPTS);
     assert.ok(html.includes('REGRESSION'));
     assert.ok(html.includes('WARN'));
     assert.ok(html.includes('p99 latency'));
   });
 
   test('shows both tag names in the result', () => {
-    const html = buildAssertResultHtml(BASELINE, COMPARE, PASSED_RESULT, DEFAULT_OPTS);
+    const html = buildAssertResultHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, BASELINE, COMPARE, PASSED_RESULT, DEFAULT_OPTS);
     assert.ok(html.includes('v1.0'));
     assert.ok(html.includes('v2.0'));
   });
 
   test('shows the threshold options used', () => {
-    const html = buildAssertResultHtml(BASELINE, COMPARE, PASSED_RESULT, DEFAULT_OPTS);
+    const html = buildAssertResultHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, BASELINE, COMPARE, PASSED_RESULT, DEFAULT_OPTS);
     assert.ok(html.includes('latency-regression'));
     assert.ok(html.includes('error-rate-delta'));
   });
 
   test('produces no unresolved template placeholders', () => {
-    const html = buildAssertResultHtml(BASELINE, COMPARE, FAILED_RESULT, DEFAULT_OPTS);
-    assert.ok(!html.includes('${'));
+    const html = buildAssertResultHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, BASELINE, COMPARE, FAILED_RESULT, DEFAULT_OPTS);
+    assert.ok(!html.includes('{{'));
   });
 
   test('HTML-escapes tag names containing special chars', () => {
     const snap = makeSnap('<b>injection</b>', '/snaps/x.snap');
-    const html = buildAssertResultHtml(snap, COMPARE, PASSED_RESULT, DEFAULT_OPTS);
+    const html = buildAssertResultHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, snap, COMPARE, PASSED_RESULT, DEFAULT_OPTS);
     assert.ok(!html.includes('<b>injection</b>'));
     assert.ok(html.includes('&lt;b&gt;injection&lt;/b&gt;'));
   });

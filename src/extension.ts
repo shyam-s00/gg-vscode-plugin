@@ -9,7 +9,7 @@ import { SnapBrowser } from './snap/snapTreeProvider';
 import { Installer } from './installer/installer';
 import { RatePrompter } from './run/ratePrompt';
 import { GgRunner } from './run/runner';
-import { RunPanel } from './run/runPanel';
+import { RunPanel } from './run/panel/panel';
 import { StatusBarManager } from './ui/statusBar';
 
 // This method is called when the extension activates
@@ -43,7 +43,7 @@ export function activate(context: vscode.ExtensionContext) {
 	//     as a WebviewView docked in the bottom panel (see contributes.views in
 	//     package.json), not an editor tab, so it doesn't compete for tab space
 	//     and survives being hidden via retainContextWhenHidden.
-	const runPanel = new RunPanel(runner);
+	const runPanel = new RunPanel(runner, context.extensionUri);
 	context.subscriptions.push(runPanel);
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(RunPanel.VIEW_ID, runPanel, {

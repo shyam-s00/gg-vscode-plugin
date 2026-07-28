@@ -1,0 +1,17 @@
+{
+	"compilerOptions": {
+		"module": "Node16",
+		"target": "ES2022",
+		"lib": [
+			"ES2022",
+			"DOM"
+		],
+		"noEmit": true,
+		"rootDir": "src",
+		"strict": true
+	},
+	"include": [
+		"src/**/client.ts",
+		"src/webview/vscode-webview.d.ts"
+	]
+}

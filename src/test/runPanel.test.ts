@@ -1,7 +1,9 @@
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { applyExit, applyHeartbeat, applySpawnError, createEmptyState, renderHtml, RunPanelState } from '../run/runPanel';
+import { applyExit, applyHeartbeat, applySpawnError, createEmptyState, renderHtml, RunPanelState } from '../run/panel/panel';
 import { HeartbeatPayload, RunExitInfo } from '../run/runner';
 
 suite('runPanel state transitions', () => {
@@ -189,24 +191,33 @@ suite('runPanel state transitions', () => {
 
   suite('renderHtml', () => {
     // The webview's own JS/canvas logic can't run outside a real webview, but
-    // this at least catches template typos (unresolved `${...}`, mismatched
+    // this at least catches template typos (unresolved `{{...}}`, mismatched
     // nonce, broken embedded JSON) that would otherwise only surface as a
     // silently blank panel at runtime.
-    const fakeWebview = { cspSource: 'vscode-webview://fake' } as vscode.Webview;
+    const fakeWebview = {
+      cspSource: 'vscode-webview://fake',
+      asWebviewUri: (uri: vscode.Uri) => uri,
+    } as unknown as vscode.Webview;
+    // Must be a real path — readTemplate() reads dist/<relDir>/view.html from
+    // it, and `pretest` builds dist/ before the test run.
+    const fakeExtensionUri = vscode.Uri.file(path.join(__dirname, '..', '..'));
 
     test('produces a complete HTML document with no unresolved template placeholders', () => {
-      const html = renderHtml(fakeWebview, createEmptyState());
+      const html = renderHtml(fakeWebview, fakeExtensionUri, createEmptyState());
       assert.ok(html.startsWith('<!DOCTYPE html>'));
       assert.ok(html.includes('</html>'));
-      assert.ok(!html.includes('${'), 'found an unresolved template placeholder');
+      assert.ok(!html.includes('{{'), 'found an unresolved template placeholder');
     });
 
-    test('uses the same nonce in the CSP meta tag and the script tag', () => {
-      const html = renderHtml(fakeWebview, createEmptyState());
+    test('uses the same nonce in the CSP meta tag and the script tags', () => {
+      const html = renderHtml(fakeWebview, fakeExtensionUri, createEmptyState());
       const cspNonceMatch = /script-src 'nonce-([^']+)'/.exec(html);
-      const scriptNonceMatch = /<script nonce="([^"]+)">/.exec(html);
-      assert.ok(cspNonceMatch && scriptNonceMatch);
-      assert.strictEqual(cspNonceMatch![1], scriptNonceMatch![1]);
+      const scriptNonceMatches = [...html.matchAll(/<script nonce="([^"]+)"/g)];
+      assert.ok(cspNonceMatch);
+      assert.strictEqual(scriptNonceMatches.length, 2, 'expected the init data-island and the src-loaded client script');
+      for (const m of scriptNonceMatches) {
+        assert.strictEqual(m[1], cspNonceMatch![1]);
+      }
     });
 
     test('embeds the initial state as valid, matching JSON', () => {
@@ -216,16 +227,17 @@ suite('runPanel state transitions', () => {
         profile: 'flash-sale',
         points: [{ elapsedSec: 1, actualRps: 10, targetRps: 20 }],
       };
-      const html = renderHtml(fakeWebview, state);
-      const match = /let state = (\{.*?\});/.exec(html);
+      const html = renderHtml(fakeWebview, fakeExtensionUri, state);
+      const match = /window\.__GG_INIT__ = (\{.*?\});/.exec(html);
       assert.ok(match, 'could not find embedded initial state');
       const embedded = JSON.parse(match![1]);
       assert.deepStrictEqual(embedded, state);
     });
 
-    test('references every statically-named DOM element id it queries by getElementById', () => {
-      const html = renderHtml(fakeWebview, createEmptyState());
-      const args = [...html.matchAll(/getElementById\(([^)]+)\)/g)].map((m) => m[1].trim());
+    test('references every statically-named DOM element id the client script queries by getElementById', () => {
+      const html = renderHtml(fakeWebview, fakeExtensionUri, createEmptyState());
+      const clientSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'run', 'panel', 'client.ts'), 'utf8');
+      const args = [...clientSrc.matchAll(/getElementById\(([^)]+)\)/g)].map((m) => m[1].trim());
       const staticIds = args.filter((arg) => /^'[^']+'$/.test(arg)).map((arg) => arg.slice(1, -1));
 
       assert.ok(staticIds.length > 0, 'expected at least one statically-named getElementById call');

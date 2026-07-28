@@ -2,11 +2,11 @@ import * as vscode from 'vscode';
 
 import type { ConfigManager } from '../config/config';
 import type { Installer } from '../installer/installer';
-import { handleAssert } from './snapAssertPanel';
+import { handleAssert } from './assert/panel';
 import { loadSnaps, resolveSnapshotsDir } from './snapDataManager';
-import { showSnapDiff } from './snapDiffPanel';
-import { handlePrune } from './snapPrunePanel';
-import { showSnapView } from './snapViewPanel';
+import { showSnapDiff } from './diff/panel';
+import { handlePrune } from './prune/panel';
+import { showSnapView } from './view/panel';
 import type { LoadedSnap } from './snapModel';
 
 // ─────────────────────────────────────────────────────────────────────────────

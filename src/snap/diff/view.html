@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="{{CSP}}">
+<link rel="stylesheet" href="{{CSS_URI}}">
+</head>
+<body>
+
+{{WARNING_BANNER}}
+
+<table class="diff-header-table">
+  <thead>
+    <tr><th></th><th>Baseline</th><th>Target</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Tag</td><td>{{B_TAG}}</td><td>{{C_TAG}}</td></tr>
+    <tr><td>Date / Time</td><td>{{B_START}}</td><td>{{C_START}}</td></tr>
+    <tr><td>Total Requests</td><td>{{B_TOTAL}}</td><td>{{C_TOTAL}}</td></tr>
+    <tr><td>Peak RPS</td><td>{{B_PEAK}}</td><td>{{C_PEAK}}</td></tr>
+    <tr><td>Profile</td><td>{{B_PROFILE}}</td><td>{{C_PROFILE}}</td></tr>
+    <tr><td>Config Hash</td><td>{{B_HASH}}</td><td>{{C_HASH}}</td></tr>
+  </tbody>
+</table>
+
+<div class="legend">
+  <div class="legend-item"><span class="dot dot-regression"></span> Regression</div>
+  <div class="legend-item"><span class="dot dot-warning"></span> Payload Warning</div>
+  <div class="legend-item"><span class="dot dot-improvement"></span> Improvement</div>
+  <div class="legend-item"><span class="dot dot-added"></span> Added</div>
+  <div class="legend-item"><span class="dot dot-removed"></span> Removed</div>
+</div>
+
+<div class="split" id="splitPane">
+  <div class="pane left" id="leftPane">
+    <div class="toolbar">
+      <div class="search-box">
+        <span style="opacity: 0.5; margin-right: 6px;">🔍</span>
+        <input type="text" id="searchInput" placeholder="Filter endpoints..." />
+      </div>
+      <button class="btn" id="columnsBtn">Columns ▾</button>
+      <div class="columns-menu" id="columnsMenu">
+        {{COLUMNS_MENU}}
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="mainTable">
+        <thead>
+          <tr>
+            <th>Endpoint</th>
+            {{TABLE_HEADER_COLS}}
+          </tr>
+        </thead>
+        <tbody id="epTable">
+          {{TABLE_ROWS}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="resizer" id="dragResizer"></div>
+  <div class="pane right" id="detail">
+    <div class="empty" style="margin-top: 40px;">Select an endpoint to see comparative details.</div>
+  </div>
+</div>
+
+<script nonce="{{NONCE}}">window.__GG_DIFFS__ = {{DIFFS_JSON}};</script>
+<script nonce="{{NONCE}}" src="{{JS_URI}}"></script>
+</body>
+</html>

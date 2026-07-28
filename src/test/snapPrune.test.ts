@@ -1,12 +1,22 @@
 import * as assert from 'assert';
+import * as path from 'path';
+import * as vscode from 'vscode';
 
 import {
   buildPruneArgs,
   buildPruneResultHtml,
   hasAtLeastOneFilter,
   parsePruneResult,
-} from '../snap/snapPrunePanel';
-import type { PruneOptions, PruneResult } from '../snap/snapPrunePanel';
+} from '../snap/prune/panel';
+import type { PruneOptions, PruneResult } from '../snap/prune/panel';
+
+const FAKE_WEBVIEW = {
+  cspSource: 'vscode-webview://fake',
+  asWebviewUri: (uri: vscode.Uri) => uri,
+} as unknown as vscode.Webview;
+// Must be a real path — readTemplate() reads dist/<relDir>/view.html from it,
+// and `pretest` builds dist/ before the test run.
+const FAKE_EXTENSION_URI = vscode.Uri.file(path.join(__dirname, '..', '..'));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixtures
@@ -176,31 +186,31 @@ suite('hasAtLeastOneFilter', () => {
 
 suite('buildPruneResultHtml', () => {
   test('shows dry-run preview copy when dry_run is true', () => {
-    const html = buildPruneResultHtml(DRY_RUN_RESULT, DEFAULT_OPTS);
+    const html = buildPruneResultHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, DRY_RUN_RESULT, DEFAULT_OPTS);
     assert.ok(html.includes('Prune Preview'));
     assert.ok(html.includes('would be deleted'));
   });
 
   test('shows delete-complete copy when dry_run is false', () => {
-    const html = buildPruneResultHtml(DELETE_RESULT, { ...DEFAULT_OPTS, dryRun: false });
+    const html = buildPruneResultHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, DELETE_RESULT, { ...DEFAULT_OPTS, dryRun: false });
     assert.ok(html.includes('Prune Complete'));
     assert.ok(html.includes('deleted'));
   });
 
   test('renders a table row for each candidate', () => {
-    const html = buildPruneResultHtml(DRY_RUN_RESULT, DEFAULT_OPTS);
+    const html = buildPruneResultHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, DRY_RUN_RESULT, DEFAULT_OPTS);
     assert.ok(html.includes('v1.0'));
     assert.ok(html.includes('older than 7d'));
   });
 
   test('shows filter summary', () => {
-    const html = buildPruneResultHtml(DRY_RUN_RESULT, { keepLast: 10, dryRun: true });
+    const html = buildPruneResultHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, DRY_RUN_RESULT, { keepLast: 10, dryRun: true });
     assert.ok(html.includes('keep-last'));
   });
 
   test('produces no unresolved template placeholders', () => {
-    const html = buildPruneResultHtml(DRY_RUN_RESULT, DEFAULT_OPTS);
-    assert.ok(!html.includes('${'));
+    const html = buildPruneResultHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, DRY_RUN_RESULT, DEFAULT_OPTS);
+    assert.ok(!html.includes('{{'));
   });
 
   test('HTML-escapes candidate values to prevent injection', () => {
@@ -208,7 +218,7 @@ suite('buildPruneResultHtml', () => {
       dry_run: true, snap_dir: '/s', deleted: 0, errors: [],
       candidates: [{ id: 1, tag: '<script>alert(1)</script>', reason: 'test' }],
     };
-    const html = buildPruneResultHtml(result, DEFAULT_OPTS);
+    const html = buildPruneResultHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, result, DEFAULT_OPTS);
     assert.ok(!html.includes('<script>'));
     assert.ok(html.includes('&lt;script&gt;'));
   });

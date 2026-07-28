@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="{{CSP}}">
+<link rel="stylesheet" href="{{CSS_URI}}">
+</head>
+<body>
+<div class="header">
+  <div class="header-top">
+    <h2>Snap: {{TAG}}</h2>
+  </div>
+  <div class="header-grid">
+    <div class="header-item">
+      <div class="label">DATE / TIME</div>
+      <div class="value">{{DATE_TIME}}</div>
+    </div>
+    <div class="header-item">
+      <div class="label">TOTAL REQUESTS</div>
+      <div class="value">{{TOTAL_REQUESTS}}</div>
+    </div>
+    <div class="header-item">
+      <div class="label">PEAK RPS</div>
+      <div class="value">{{PEAK_RPS}}</div>
+    </div>
+    <div class="header-item">
+      <div class="label">PROFILE</div>
+      <div class="value">{{PROFILE}}</div>
+    </div>
+    <div class="header-item">
+      <div class="label">CONFIG HASH</div>
+      <div class="value">{{CONFIG_HASH}}</div>
+    </div>
+    <div class="header-item">
+      <div class="label">SAMPLING</div>
+      <div class="value">{{SAMPLING}}</div>
+    </div>
+  </div>
+</div>
+
+<div class="split" id="splitPane">
+  <div class="pane left" id="leftPane">
+    <div class="toolbar">
+      <div class="search-box">
+        <span style="opacity: 0.5; margin-right: 6px;">🔍</span>
+        <input type="text" id="searchInput" placeholder="Filter endpoints..." />
+      </div>
+      <button class="btn" id="columnsBtn">Columns ▾</button>
+      <div class="columns-menu" id="columnsMenu">
+        {{COLUMNS_MENU}}
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="mainTable">
+        <thead><tr>
+          <th>Endpoint</th>
+          {{TABLE_HEADER_COLS}}
+        </tr></thead>
+        <tbody id="epTable">
+          {{TABLE_ROWS}}
+        </tbody>
+      </table>
+      {{EMPTY_MESSAGE}}
+    </div>
+  </div>
+  <div class="resizer" id="dragResizer"></div>
+  <div class="pane right" id="detail">
+    <div class="empty" style="margin-top: 40px;">Select an endpoint to see details.</div>
+  </div>
+</div>
+
+<script nonce="{{NONCE}}">window.__GG_EPS__ = {{EPS_JSON}};</script>
+<script nonce="{{NONCE}}" src="{{JS_URI}}"></script>
+</body>
+</html>

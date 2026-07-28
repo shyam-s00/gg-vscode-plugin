@@ -1,0 +1,22 @@
+* { box-sizing: border-box; }
+body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); color: var(--vscode-foreground); background: var(--vscode-editor-background); margin: 0; padding: 14px 18px; }
+.banner { display: flex; align-items: center; gap: 10px; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; }
+.banner.fail { background: rgba(248,81,73,0.12); border: 1px solid rgba(248,81,73,0.35); }
+.banner.pass { background: rgba(63,185,80,0.12); border: 1px solid rgba(63,185,80,0.35); }
+.banner-icon { font-size: 20px; line-height: 1; }
+.banner-text h2 { margin: 0 0 2px 0; font-size: 14px; }
+.banner-text .sub { font-size: 11px; color: var(--vscode-descriptionForeground); }
+.header { margin-bottom: 12px; }
+.header .meta { font-size: 11px; color: var(--vscode-descriptionForeground); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { background: var(--vscode-editorWidget-background); padding: 6px 8px; text-align: left; font-weight: 600; position: sticky; top: 0; border-bottom: 1px solid var(--vscode-panel-border); }
+td { padding: 5px 8px; border-bottom: 1px solid var(--vscode-panel-border); vertical-align: top; }
+td.ep { font-family: var(--vscode-editor-font-family); font-size: 11px; white-space: nowrap; }
+.reg td { background: rgba(248,81,73,0.06); }
+.wrn td { background: rgba(210,153,34,0.06); }
+.badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; }
+.badge-reg { background: rgba(248,81,73,0.2); color: #f85149; }
+.badge-wrn { background: rgba(210,153,34,0.2); color: #d29922; }
+.badge-pass { background: rgba(63,185,80,0.15); color: #3fb950; }
+.empty { font-style: italic; color: var(--vscode-descriptionForeground); padding: 10px 0; font-size: 12px; }
+.opts { font-size: 11px; color: var(--vscode-descriptionForeground); margin-bottom: 10px; }
