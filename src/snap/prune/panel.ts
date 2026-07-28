@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 
-import type { ConfigManager } from '../config';
-import type { Installer } from '../installer';
-import { runSnapCommand } from './snapCliRunner';
-import { getSnapDetailPanel } from './snapDetailPanel';
+import type { ConfigManager } from '../../config/config';
+import type { Installer } from '../../installer/installer';
+import { readTemplate, resolveAssetUris } from '../../webview/webviewAssets';
+import { runSnapCommand } from '../snapCliRunner';
+import { getExtensionUri, getSnapDetailPanel } from '../snapDetailPanel';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types — exported for testing
@@ -249,14 +250,19 @@ export async function handlePrune(
   }
 
   const panel = getSnapDetailPanel(result.dry_run ? 'Prune Preview' : 'Prune Complete');
-  panel.webview.html = buildPruneResultHtml(result, opts);
+  panel.webview.html = buildPruneResultHtml(panel.webview, getExtensionUri(), result, opts);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HTML — exported for smoke-testing
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function buildPruneResultHtml(result: PruneResult, opts: PruneOptions): string {
+export function buildPruneResultHtml(
+  webview: vscode.Webview,
+  extensionUri: vscode.Uri,
+  result: PruneResult,
+  opts: PruneOptions,
+): string {
   const isDryRun = result.dry_run;
   const count = isDryRun ? result.candidates.length : result.deleted;
   const title = isDryRun ? 'Prune Preview' : 'Prune Complete';
@@ -281,51 +287,36 @@ export function buildPruneResultHtml(result: PruneResult, opts: PruneOptions): s
 
   const errorRows = result.errors.map((e) => `<li class="error">${escHtml(e)}</li>`);
 
-  return /* html */ `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); color: var(--vscode-foreground); background: var(--vscode-editor-background); margin: 0; padding: 14px 18px; }
-  .banner { display: flex; align-items: center; gap: 10px; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; }
-  .banner.preview { background: rgba(88,166,255,0.1); border: 1px solid rgba(88,166,255,0.3); }
-  .banner.done { background: rgba(63,185,80,0.1); border: 1px solid rgba(63,185,80,0.3); }
-  .banner.empty { background: var(--vscode-editorWidget-background); border: 1px solid var(--vscode-panel-border); }
-  .banner-icon { font-size: 20px; line-height: 1; }
-  .banner-text h2 { margin: 0 0 2px 0; font-size: 14px; }
-  .banner-text .sub { font-size: 11px; color: var(--vscode-descriptionForeground); }
-  .filters { font-size: 11px; color: var(--vscode-descriptionForeground); margin-bottom: 10px; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { background: var(--vscode-editorWidget-background); padding: 6px 8px; text-align: left; font-weight: 600; position: sticky; top: 0; border-bottom: 1px solid var(--vscode-panel-border); }
-  td { padding: 5px 8px; border-bottom: 1px solid var(--vscode-panel-border); }
-  ul.errors { list-style: none; padding: 0; margin: 10px 0 0 0; }
-  li.error { color: #f85149; font-size: 12px; padding: 3px 0; }
-  .empty { font-style: italic; color: var(--vscode-descriptionForeground); padding: 10px 0; font-size: 12px; }
-</style>
-</head>
-<body>
-<div class="banner ${count === 0 ? 'empty' : isDryRun ? 'preview' : 'done'}">
-  <div class="banner-icon">${isDryRun ? '🔍' : count > 0 ? '🗑️' : 'ℹ️'}</div>
-  <div class="banner-text">
-    <h2>${title}</h2>
-    <div class="sub">
-      ${isDryRun
-        ? `${count} snapshot${count !== 1 ? 's' : ''} would be deleted`
-        : `${count} snapshot${count !== 1 ? 's' : ''} deleted`}
-    </div>
-  </div>
-</div>
-${filtersUsed ? `<div class="filters">Filters: ${escHtml(filtersUsed)}</div>` : ''}
-${candidateRows.length > 0
-  ? `<table>
+  const bannerClass = count === 0 ? 'empty' : isDryRun ? 'preview' : 'done';
+  const bannerIcon = isDryRun ? '🔍' : count > 0 ? '🗑️' : 'ℹ️';
+  const subText = isDryRun
+    ? `${count} snapshot${count !== 1 ? 's' : ''} would be deleted`
+    : `${count} snapshot${count !== 1 ? 's' : ''} deleted`;
+  const filtersLine = filtersUsed ? `<div class="filters">Filters: ${escHtml(filtersUsed)}</div>` : '';
+  const tableOrEmpty = candidateRows.length > 0
+    ? `<table>
       <thead><tr><th>ID</th><th>Tag</th><th>Date</th><th>Reason</th></tr></thead>
       <tbody>${candidateRows.join('')}</tbody>
     </table>`
-  : '<div class="empty">No candidates matched the specified filters.</div>'}
-${errorRows.length > 0 ? `<ul class="errors">${errorRows.join('')}</ul>` : ''}
-</body>
-</html>`;
+    : '<div class="empty">No candidates matched the specified filters.</div>';
+  const errorList = errorRows.length > 0 ? `<ul class="errors">${errorRows.join('')}</ul>` : '';
+
+  const { css } = resolveAssetUris(webview, extensionUri, 'snap/prune', false);
+  const csp = [
+    "default-src 'none'",
+    `style-src ${webview.cspSource} 'unsafe-inline'`,
+  ].join('; ');
+
+  return readTemplate(extensionUri, 'snap/prune', 'view.html')
+    .replace('{{CSP}}', csp)
+    .replace('{{CSS_URI}}', css.toString())
+    .replace('{{BANNER_CLASS}}', bannerClass)
+    .replace('{{BANNER_ICON}}', bannerIcon)
+    .replace('{{TITLE}}', title)
+    .replace('{{SUB_TEXT}}', subText)
+    .replace('{{FILTERS_LINE}}', filtersLine)
+    .replace('{{TABLE_OR_EMPTY}}', tableOrEmpty)
+    .replace('{{ERROR_LIST}}', errorList);
 }
 
 function escHtml(s: string): string {

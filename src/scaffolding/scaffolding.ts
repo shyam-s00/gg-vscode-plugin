@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { HTTP_FILE_EXTENSIONS } from './httpParser';
-import { BUILT_IN_PROFILES, byCategory } from './profileCatalog';
+import { HTTP_FILE_EXTENSIONS } from '../http/httpParser';
+import { BUILT_IN_PROFILES, byCategory } from '../profiles/profileCatalog';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Templates — pure functions, exported for testing.

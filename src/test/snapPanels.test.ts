@@ -1,8 +1,9 @@
 import * as assert from 'assert';
+import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { computeDiff, buildSnapDiffHtml } from '../snap/snapDiffPanel';
-import { formatEndpointId, buildSnapViewHtml } from '../snap/snapViewPanel';
+import { computeDiff, buildSnapDiffHtml } from '../snap/diff/panel';
+import { formatEndpointId, buildSnapViewHtml } from '../snap/view/panel';
 import type { LoadedSnap } from '../snap/snapModel';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -134,12 +135,18 @@ suite('computeDiff', () => {
 // HTML smoke tests
 // ─────────────────────────────────────────────────────────────────────────────
 
-const FAKE_WEBVIEW = { cspSource: 'vscode-webview://fake' } as vscode.Webview;
+const FAKE_WEBVIEW = {
+  cspSource: 'vscode-webview://fake',
+  asWebviewUri: (uri: vscode.Uri) => uri,
+} as unknown as vscode.Webview;
+// Must be a real path — readTemplate() reads dist/<relDir>/view.html from it,
+// and `pretest` builds dist/ before the test run.
+const FAKE_EXTENSION_URI = vscode.Uri.file(path.join(__dirname, '..', '..'));
 
 suite('buildSnapViewHtml', () => {
   test('contains the snapshot tag in the output', () => {
     const snap = makeSnap('v2.0', '2026-06-01T10:00:00Z');
-    const html = buildSnapViewHtml(FAKE_WEBVIEW, snap, 'v2.0');
+    const html = buildSnapViewHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, snap, 'v2.0');
     assert.ok(html.includes('v2.0'));
   });
 
@@ -148,31 +155,31 @@ suite('buildSnapViewHtml', () => {
       makeEndpoint('GET:http://a/x', 10),
       makeEndpoint('POST:http://a/y', 20),
     ]);
-    const html = buildSnapViewHtml(FAKE_WEBVIEW, snap, 't');
+    const html = buildSnapViewHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, snap, 't');
     assert.ok(html.includes('GET /x'));
     assert.ok(html.includes('POST /y'));
   });
 
   test('produces no unresolved template placeholders', () => {
-    const html = buildSnapViewHtml(FAKE_WEBVIEW, makeSnap('t', '2026-01-01T00:00:00Z'), 't');
-    assert.ok(!html.includes('${'), 'found an unresolved template placeholder');
+    const html = buildSnapViewHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, makeSnap('t', '2026-01-01T00:00:00Z'), 't');
+    assert.ok(!html.includes('{{'), 'found an unresolved template placeholder');
   });
 });
 
 suite('buildSnapDiffHtml', () => {
   test('contains both tag names', () => {
-    const html = buildSnapDiffHtml(BASELINE, COMPARE, 'v1.0', 'v1.1');
+    const html = buildSnapDiffHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, BASELINE, COMPARE, 'v1.0', 'v1.1');
     assert.ok(html.includes('v1.0'));
     assert.ok(html.includes('v1.1'));
   });
 
   test('shows a regression summary when regressions exist', () => {
-    const html = buildSnapDiffHtml(BASELINE, COMPARE, 'v1.0', 'v1.1');
+    const html = buildSnapDiffHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, BASELINE, COMPARE, 'v1.0', 'v1.1');
     assert.ok(html.includes('regression'));
   });
 
   test('produces no unresolved template placeholders', () => {
-    const html = buildSnapDiffHtml(BASELINE, COMPARE, 'v1.0', 'v1.1');
-    assert.ok(!html.includes('${'));
+    const html = buildSnapDiffHtml(FAKE_WEBVIEW, FAKE_EXTENSION_URI, BASELINE, COMPARE, 'v1.0', 'v1.1');
+    assert.ok(!html.includes('{{'));
   });
 });

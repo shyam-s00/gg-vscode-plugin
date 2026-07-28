@@ -8,7 +8,7 @@ import {
   isGgConfigFile,
   parseGgConfig,
   resolveHttpFile,
-} from '../configParser';
+} from '../config/configParser';
 
 suite('configParser', () => {
   test('parses a full .gg.yaml document', () => {

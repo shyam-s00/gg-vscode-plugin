@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 
-import { parseHttpRequests } from '../httpParser';
+import { parseHttpRequests } from '../http/httpParser';
 
 suite('httpParser', () => {
   test('parses a single request file with no separators', () => {

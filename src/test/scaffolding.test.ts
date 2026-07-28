@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 
-import { BUILT_IN_PROFILES } from '../profileCatalog';
-import { generateConfigTemplate, generateHttpTestTemplate, HTTP_TEMPLATE_PLACEHOLDER_URL } from '../scaffolding';
+import { BUILT_IN_PROFILES } from '../profiles/profileCatalog';
+import { generateConfigTemplate, generateHttpTestTemplate, HTTP_TEMPLATE_PLACEHOLDER_URL } from '../scaffolding/scaffolding';
 
 suite('generateConfigTemplate', () => {
   test('contains the given http filename in the httpFile field', () => {

@@ -60,6 +60,9 @@ export interface SnapMeta {
   total_requests: number;
   config_hash?: string;
   snap_settings?: SnapSettings;
+  /** Simulation profile name used for the run, if the gg CLI recorded one. */
+  profile_name?: string;
+  profile_scale?: number;
 }
 
 export interface SnapModel {

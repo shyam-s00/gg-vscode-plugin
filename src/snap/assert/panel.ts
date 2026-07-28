@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
 
-import type { ConfigManager } from '../config';
-import type { Installer } from '../installer';
-import { runSnapCommand } from './snapCliRunner';
-import { getSnapDetailPanel } from './snapDetailPanel';
-import type { LoadedSnap } from './snapModel';
+import type { ConfigManager } from '../../config/config';
+import type { Installer } from '../../installer/installer';
+import { readTemplate, resolveAssetUris } from '../../webview/webviewAssets';
+import { runSnapCommand } from '../snapCliRunner';
+import { getExtensionUri, getSnapDetailPanel } from '../snapDetailPanel';
+import type { LoadedSnap } from '../snapModel';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types — exported for testing
@@ -217,7 +218,7 @@ export async function handleAssert(
   }
 
   const panel = getSnapDetailPanel('Assert Result');
-  panel.webview.html = buildAssertResultHtml(baseline, compare, result, opts);
+  panel.webview.html = buildAssertResultHtml(panel.webview, getExtensionUri(), baseline, compare, result, opts);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -225,6 +226,8 @@ export async function handleAssert(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function buildAssertResultHtml(
+  webview: vscode.Webview,
+  extensionUri: vscode.Uri,
   baseline: LoadedSnap,
   compare: LoadedSnap,
   result: AssertResult,
@@ -253,52 +256,33 @@ export function buildAssertResultHtml(
     ...(opts.failOnWarn ? ['fail-on-warn'] : []),
   ].join('  ·  ');
 
-  return /* html */ `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); color: var(--vscode-foreground); background: var(--vscode-editor-background); margin: 0; padding: 14px 18px; }
-  .banner { display: flex; align-items: center; gap: 10px; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; }
-  .banner.fail { background: rgba(248,81,73,0.12); border: 1px solid rgba(248,81,73,0.35); }
-  .banner.pass { background: rgba(63,185,80,0.12); border: 1px solid rgba(63,185,80,0.35); }
-  .banner-icon { font-size: 20px; line-height: 1; }
-  .banner-text h2 { margin: 0 0 2px 0; font-size: 14px; }
-  .banner-text .sub { font-size: 11px; color: var(--vscode-descriptionForeground); }
-  .header { margin-bottom: 12px; }
-  .header .meta { font-size: 11px; color: var(--vscode-descriptionForeground); }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { background: var(--vscode-editorWidget-background); padding: 6px 8px; text-align: left; font-weight: 600; position: sticky; top: 0; border-bottom: 1px solid var(--vscode-panel-border); }
-  td { padding: 5px 8px; border-bottom: 1px solid var(--vscode-panel-border); vertical-align: top; }
-  td.ep { font-family: var(--vscode-editor-font-family); font-size: 11px; white-space: nowrap; }
-  .reg td { background: rgba(248,81,73,0.06); }
-  .wrn td { background: rgba(210,153,34,0.06); }
-  .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; }
-  .badge-reg { background: rgba(248,81,73,0.2); color: #f85149; }
-  .badge-wrn { background: rgba(210,153,34,0.2); color: #d29922; }
-  .badge-pass { background: rgba(63,185,80,0.15); color: #3fb950; }
-  .empty { font-style: italic; color: var(--vscode-descriptionForeground); padding: 10px 0; font-size: 12px; }
-  .opts { font-size: 11px; color: var(--vscode-descriptionForeground); margin-bottom: 10px; }
-</style>
-</head>
-<body>
-<div class="banner ${result.passed ? 'pass' : 'fail'}">
-  <div class="banner-icon">${result.passed ? '✅' : '❌'}</div>
-  <div class="banner-text">
-    <h2>${result.passed ? 'Assertion passed' : `Assertion failed — ${regressions.length} regression${regressions.length !== 1 ? 's' : ''}${warns.length > 0 ? `, ${warns.length} warning${warns.length !== 1 ? 's' : ''}` : ''}`}</h2>
-    <div class="sub">Baseline: <strong>${escHtml(bTag)}</strong> &nbsp;→&nbsp; Compare: <strong>${escHtml(cTag)}</strong></div>
-  </div>
-</div>
-<div class="opts">Thresholds: ${escHtml(optsLine)}</div>
-${result.violations.length === 0
-  ? '<div class="empty">No violations recorded.</div>'
-  : `<table>
+  const headline = result.passed
+    ? 'Assertion passed'
+    : `Assertion failed — ${regressions.length} regression${regressions.length !== 1 ? 's' : ''}${warns.length > 0 ? `, ${warns.length} warning${warns.length !== 1 ? 's' : ''}` : ''}`;
+
+  const tableOrEmpty = result.violations.length === 0
+    ? '<div class="empty">No violations recorded.</div>'
+    : `<table>
 <thead><tr><th>Endpoint</th><th>Verdict</th><th>Details</th></tr></thead>
 <tbody>${verdictRows.join('')}</tbody>
-</table>`}
-</body>
-</html>`;
+</table>`;
+
+  const { css } = resolveAssetUris(webview, extensionUri, 'snap/assert', false);
+  const csp = [
+    "default-src 'none'",
+    `style-src ${webview.cspSource} 'unsafe-inline'`,
+  ].join('; ');
+
+  return readTemplate(extensionUri, 'snap/assert', 'view.html')
+    .replace('{{CSP}}', csp)
+    .replace('{{CSS_URI}}', css.toString())
+    .replace('{{BANNER_CLASS}}', result.passed ? 'pass' : 'fail')
+    .replace('{{BANNER_ICON}}', result.passed ? '✅' : '❌')
+    .replace('{{HEADLINE}}', headline)
+    .replace('{{BASELINE_TAG}}', escHtml(bTag))
+    .replace('{{COMPARE_TAG}}', escHtml(cTag))
+    .replace('{{OPTS_LINE}}', escHtml(optsLine))
+    .replace('{{TABLE_OR_EMPTY}}', tableOrEmpty);
 }
 
 function escHtml(s: string): string {

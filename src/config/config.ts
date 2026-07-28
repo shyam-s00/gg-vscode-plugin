@@ -37,6 +37,15 @@ export interface ConfigChangeEvent {
 
 const SECTION = 'gg';
 
+/**
+ * globalState key tracking whether the current `gg.binaryPath` value was set
+ * by the Installer itself (vs. a deliberate user override). Lets the
+ * Installer safely re-point a stale managed path — e.g. one left over from a
+ * previous extension identity/globalStorage location — on the next install,
+ * without ever clobbering a path the user picked by hand.
+ */
+export const MANAGED_BINARY_PATH_KEY = 'gg.managedBinaryPath';
+
 /** Read all gg.* settings from VS Code's configuration API. */
 function readConfig(scope?: vscode.Uri): GgConfig {
   const c = vscode.workspace.getConfiguration(SECTION, scope ?? null);
@@ -251,6 +260,9 @@ export class ConfigManager implements vscode.Disposable {
     await vscode.workspace
       .getConfiguration(SECTION)
       .update('binaryPath', chosen, vscode.ConfigurationTarget.Global);
+    // A hand-picked path is a deliberate override — the Installer must never
+    // silently repoint it during a later managed install.
+    await this.context.globalState.update(MANAGED_BINARY_PATH_KEY, false);
 
     vscode.window.showInformationMessage(
       `Gopher-Glide: Binary path set to "${chosen}".`,

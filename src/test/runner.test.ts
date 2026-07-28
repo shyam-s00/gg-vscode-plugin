@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 
-import { consumeHeartbeatLines, GgRunner, HeartbeatPayload, RunExitInfo } from '../runner';
+import { consumeHeartbeatLines, GgRunner, HeartbeatPayload, RunExitInfo } from '../run/runner';
 
 async function waitFor(predicate: () => boolean, timeoutMs = 5000): Promise<void> {
   const start = Date.now();

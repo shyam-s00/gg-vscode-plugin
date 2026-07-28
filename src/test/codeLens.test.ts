@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { findFirstTopLevelKeyLine, GgHttpCodeLensProvider, GgYamlCodeLensProvider } from '../codeLens';
+import { findFirstTopLevelKeyLine, GgHttpCodeLensProvider, GgYamlCodeLensProvider } from '../providers/codeLens';
 
 const NOOP_TOKEN = new vscode.CancellationTokenSource().token;
 

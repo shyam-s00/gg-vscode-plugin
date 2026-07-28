@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="{{CSP}}">
+<link rel="stylesheet" href="{{CSS_URI}}">
+</head>
+<body>
+  <div class="header">
+    <div id="statusDot" class="status-dot"></div>
+    <div id="statusText"></div>
+    <div id="profileText"></div>
+    <div id="elapsedText"></div>
+    <button id="stopBtn">Stop</button>
+  </div>
+
+  <div class="metrics-row">
+    <div class="metric-card"><div class="metric-label">Target RPS</div><div id="metric-targetRps" class="metric-value">—</div></div>
+    <div class="metric-card"><div class="metric-label">Actual RPS</div><div id="metric-actualRps" class="metric-value">—</div></div>
+    <div class="metric-card"><div class="metric-label">Error Rate</div><div id="metric-errorRate" class="metric-value">—</div></div>
+    <div class="metric-card"><div class="metric-label">Total Requests</div><div id="metric-totalRequests" class="metric-value">—</div></div>
+    <div class="metric-card"><div class="metric-label">Latency (p50 / p95 / p99)</div><div id="metric-latency" class="metric-value">—</div></div>
+  </div>
+
+  <div id="timeline"></div>
+
+  <div id="chartContainer"><canvas id="rpsChart"></canvas></div>
+
+  <div id="snapMessage"></div>
+  <div id="errorBanner"></div>
+
+<script nonce="{{NONCE}}">window.__GG_INIT__ = {{INIT_JSON}};</script>
+<script nonce="{{NONCE}}" src="{{JS_URI}}"></script>
+</body>
+</html>

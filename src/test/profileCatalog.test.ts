@@ -7,7 +7,7 @@ import {
   CATEGORY_ORDER,
   parseCustomProfilesOutput,
   ProfileCategory,
-} from '../profileCatalog';
+} from '../profiles/profileCatalog';
 
 suite('profileCatalog', () => {
   test('has exactly 21 built-in profiles with unique names', () => {

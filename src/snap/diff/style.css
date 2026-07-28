@@ -1,0 +1,95 @@
+* { box-sizing: border-box; }
+body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); color: var(--vscode-foreground); background: var(--vscode-editor-background); margin: 0; padding: 16px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+.warning-banner { background-color: #382c10; color: #e3b341; border: 1px solid #845306; padding: 8px 12px; font-size: 12px; border-radius: 4px; margin-bottom: 12px; }
+
+.diff-header-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 12px; }
+.diff-header-table th { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--vscode-panel-border); font-size: 11px; color: var(--vscode-descriptionForeground); text-transform: uppercase; }
+.diff-header-table td { padding: 4px 8px; font-weight: 500; }
+
+.legend { display: flex; gap: 16px; font-size: 11px; color: var(--vscode-descriptionForeground); margin-bottom: 12px; align-items: center; }
+.legend-item { display: flex; align-items: center; gap: 4px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot-regression { background: #f85149; }
+.dot-warning { background: #d29922; }
+.dot-improvement { background: #3fb950; }
+.dot-added { background: #58a6ff; }
+.dot-removed { background: #8b949e; }
+
+/* Toolbar styling — scoped to the left (endpoint list) pane only */
+.toolbar { display: flex; gap: 8px; padding: 10px 12px; align-items: center; position: relative; flex: none; border-bottom: 1px solid var(--vscode-panel-border); }
+.search-box { flex: 1; display: flex; align-items: center; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); border-radius: 2px; padding: 4px 8px; }
+.search-box input { flex: 1; background: transparent; border: none; color: var(--vscode-input-foreground); font-family: inherit; font-size: 12px; outline: none; }
+.search-box input::placeholder { color: var(--vscode-input-placeholderForeground); }
+.btn { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: 1px solid var(--vscode-button-border, transparent); padding: 4px 12px; font-size: 12px; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.btn:hover { background: var(--vscode-button-secondaryHoverBackground); }
+
+/* Columns menu dropdown */
+.columns-menu { display: none; position: absolute; right: 0; top: 100%; margin-top: 4px; background: var(--vscode-menu-background, #252526); border: 1px solid var(--vscode-menu-border, #454545); box-shadow: 0 4px 12px rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 4px; z-index: 100; min-width: 160px; flex-direction: column; gap: 6px; }
+.columns-menu.open { display: flex; }
+.columns-menu label { font-size: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+
+.split { display: flex; gap: 0; flex: 1; overflow: hidden; border: 1px solid var(--vscode-panel-border); border-radius: 4px; }
+.pane { overflow: auto; }
+.left { width: 55%; min-width: 200px; max-width: 80%; flex: none; border-right: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); display: flex; flex-direction: column; overflow: hidden; }
+.left .table-wrap { flex: 1; overflow: auto; }
+.right { flex: 1; min-width: 200px; display: flex; flex-direction: column; background: var(--vscode-editorWidget-background); overflow: hidden; }
+
+/* Horizontal Drag Resizer */
+.resizer { width: 6px; background: var(--vscode-panel-border); cursor: col-resize; flex: none; user-select: none; transition: background 0.15s; z-index: 10; }
+.resizer:hover, .resizer.dragging { background: var(--vscode-focusBorder, #007acc); }
+
+/* Vertical Drag Resizer */
+.v-resizer { height: 6px; background: var(--vscode-panel-border); cursor: row-resize; flex: none; user-select: none; transition: background 0.15s; z-index: 10; }
+.v-resizer:hover, .v-resizer.v-dragging { background: var(--vscode-focusBorder, #007acc); }
+
+table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+th { background: var(--vscode-editor-background); padding: 8px 12px; text-align: left; font-weight: 600; position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--vscode-panel-border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+td { padding: 6px 12px; border-bottom: 1px solid var(--vscode-panel-border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Column resize handles */
+.col-resize-handle { position: absolute; top: 0; right: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 2; user-select: none; }
+.col-resize-handle:hover, .col-resize-handle.resizing { background: var(--vscode-focusBorder, #007acc); }
+
+.ep-row { cursor: pointer; }
+.ep-row:hover:not(.selected) { background: var(--vscode-list-hoverBackground); }
+.ep-row.selected { background: #0060C0; color: #ffffff; }
+td.id-cell { font-family: var(--vscode-editor-font-family); font-size: 12px; }
+
+.row-removed { color: var(--vscode-descriptionForeground); opacity: 0.7; }
+.row-added { color: #58a6ff; }
+.diff-arrow-up { color: #f85149; font-weight: bold; }
+.diff-arrow-down { color: #3fb950; font-weight: bold; }
+.diff-arrow-neutral { color: var(--vscode-descriptionForeground); font-weight: bold; }
+.diff-badge-added { background: #1f6beb; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+.diff-badge-removed { background: #484f58; color: #ffffff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+
+.schema-header { padding: 8px 12px; font-size: 12px; font-weight: 600; color: var(--vscode-descriptionForeground); border-bottom: 1px solid var(--vscode-panel-border); background: var(--vscode-editor-background); position: sticky; top: 0; z-index: 1; flex: none; }
+.schema-content { flex: 1; min-height: 80px; overflow: auto; }
+.schema-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.schema-table th { padding: 6px 12px; text-align: left; position: sticky; top: 0; background: var(--vscode-editorWidget-background); border-bottom: 1px solid var(--vscode-panel-border); }
+.schema-table td { padding: 4px 12px; border-bottom: none; }
+.schema-row { font-family: var(--vscode-editor-font-family); }
+.indent { display: inline-block; width: 16px; }
+.expand-icon { cursor: pointer; display: inline-block; width: 16px; text-align: center; color: var(--vscode-descriptionForeground); user-select: none; font-weight: bold; }
+.type-icon { display: inline-block; width: 24px; text-align: center; font-weight: bold; font-size: 10px; margin-right: 8px; color: var(--vscode-descriptionForeground); opacity: 0.8; }
+.stability-STABLE { color: #3fb950; }
+.stability-VOLATILE { color: #f85149; }
+.stability-RARE { color: var(--vscode-descriptionForeground); opacity: 0.7; }
+
+.status-dist-container { flex: 1; min-height: 100px; overflow: auto; border-top: 1px solid var(--vscode-panel-border); display: flex; flex-direction: column; }
+.status-dist-header { padding: 8px 12px; font-size: 12px; font-weight: 600; flex: none; }
+.status-dist-body { padding: 0 12px 12px 12px; display: flex; flex-direction: row; gap: 16px; flex: 1; overflow: auto; }
+.status-dist-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.status-dist-col + .status-dist-col { border-left: 1px solid var(--vscode-panel-border); padding-left: 16px; }
+.status-dist-subhead { font-size: 11px; font-weight: 600; color: var(--vscode-descriptionForeground); text-transform: uppercase; margin-top: 4px; margin-bottom: 2px; }
+.status-code-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.status-code-label { width: 45px; font-weight: 600; font-family: var(--vscode-editor-font-family); }
+.status-code-pct { width: 45px; text-align: right; font-weight: 500; font-size: 11px; color: var(--vscode-descriptionForeground); }
+.bar-wrapper { flex: 1; background: var(--vscode-editor-background); height: 14px; border-radius: 2px; overflow: hidden; display: flex; }
+.bar-segment { height: 100%; }
+.bar-segment-200 { background: #3fb950; }
+.bar-segment-400 { background: #d29922; }
+.bar-segment-500 { background: #f85149; }
+
+.empty { color: var(--vscode-descriptionForeground); font-style: italic; padding: 20px; font-size: 12px; text-align: center; }

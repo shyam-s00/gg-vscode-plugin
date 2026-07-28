@@ -2,13 +2,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import type { ConfigManager } from './config';
-import { findSiblingConfig, isGgConfigFile, parseGgConfig } from './configParser';
-import { HTTP_FILE_EXTENSIONS } from './httpParser';
-import type { Installer } from './installer';
-import { BUILT_IN_PROFILES, byCategory, GgProfile, loadCustomProfiles } from './profileCatalog';
-import { buildConfigRunArgs, buildProfileRunArgs, SnapOptions } from './runArgs';
-import type { GgRunner } from './runner';
+import type { ConfigManager } from './config/config';
+import { findSiblingConfig, isGgConfigFile, parseGgConfig } from './config/configParser';
+import { HTTP_FILE_EXTENSIONS } from './http/httpParser';
+import type { Installer } from './installer/installer';
+import { BUILT_IN_PROFILES, byCategory, GgProfile, loadCustomProfiles } from './profiles/profileCatalog';
+import { buildConfigRunArgs, buildProfileRunArgs, SnapOptions } from './run/runArgs';
+import type { GgRunner } from './run/runner';
 
 const LAST_PROFILE_KEY = 'gg.lastProfile';
 const DURATION_RE = /^(\d+(h|m|s|ms))+$/;

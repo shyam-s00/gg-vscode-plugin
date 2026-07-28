@@ -1,8 +1,8 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { findSiblingConfig, isGgConfigFile } from './configParser';
-import { HTTP_FILE_EXTENSIONS, parseHttpRequests } from './httpParser';
+import { findSiblingConfig, isGgConfigFile } from '../config/configParser';
+import { HTTP_FILE_EXTENSIONS, parseHttpRequests } from '../http/httpParser';
 
 const DEBOUNCE_MS = 300;
 
