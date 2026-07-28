@@ -1,12 +1,6 @@
 # Change Log
 
-All notable changes to the "gg-plugin" extension will be documented in this file.
-
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
-
-When cutting a release, move the contents of `[Unreleased]` under a new `## [x.y.z]` heading (matching the pushed git tag, without the `v` prefix) before tagging.
-
-## [Unreleased]
+## [2.0.0] - 2026-07-27
 
 ### Added
 
@@ -18,3 +12,8 @@ When cutting a release, move the contents of `[Unreleased]` under a new `## [x.y
 - Scaffolding commands to generate a `.gg.yaml` config or a new `.http` test file
 - Auto-managed `gg` binary with status bar indicator, update checks, and manual path override
 - CodeLens, editor title button, and context menu run entry points
+
+### Changed
+
+- Redesigned the snapshot view and diff panels with a new split-pane layout: a resizable, sortable endpoint table on the left and a detail pane on the right with an expandable inferred-schema tree and status-code distribution charts. Added per-column visibility toggles and endpoint search/filtering.
+- Reorganized the webview panel codebase internally to separate view markup, styles, and client-side logic from panel logic (no additional user-facing change)
