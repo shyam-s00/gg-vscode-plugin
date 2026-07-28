@@ -12,7 +12,7 @@ This extension brings `gg`'s traffic-simulation workflow directly into VS Code:
 
 - **One-click runs** — execute a traffic simulation, or scaffold a new run config, straight from any `.http` file or `.gg.yaml` config via CodeLens, the editor title bar, or the right-click menu, with a built-in profile picker (smoke, load, stress, soak, spike, and 16 more) for zero-config runs.
 - **Native run dashboard** — a dedicated Gopher-Glide panel shows a live stage timeline, RPS chart, error rate, and latency percentiles while a simulation runs — no terminal TUI involved.
-- **Native snapshot workflow** — browse, view, and diff `gg`'s semantic JSON snapshots (latency, status distribution, inferred response schemas), run `gg snap assert` to gate regressions, and prune old snapshots by ID, tag, or age — entirely inside the panel, no terminal involved.
+- **Native snapshot workflow** — browse, view, and diff `gg`'s semantic JSON snapshots in an interactive split-pane panel (sortable/searchable endpoint table, expandable inferred-schema tree, status-code distribution charts), run `gg snap assert` to gate regressions, and prune old snapshots by ID, tag, or age — entirely inside the panel, no terminal involved.
 - **Schema-validated config** — JSON Schema completion and validation for `.gg.yaml` files, covering stages, snapshot tuning, and built-in profiles.
 - **Zero manual setup** — the extension downloads and manages the `gg` binary for you, with update checks and diagnostics built into Settings → Gopher-Glide.
 
@@ -24,6 +24,7 @@ Learn more and read the full docs at [gopherglide.dev](https://gopherglide.dev).
 - **Run `.gg.yaml` config files directly** — the config is the single source of truth, no profile picker needed.
 - **Live run dashboard** — status, elapsed time, target/actual RPS, error rate, latency percentiles (p50/p95/p99), an RPS chart, and a stage timeline, updated in real time from `gg`'s headless heartbeat stream.
 - **Snapshot workflows** — browse captured snapshots in a tree view, then view endpoint detail, diff two snapshots, run `gg snap assert` as a CI-style gate, or prune old snapshots.
+- **Snapshot view & diff panels** — a split-pane layout with a resizable, searchable endpoint table on the left and a detail pane on the right showing an expandable inferred-schema tree (with per-field type, presence %, and stability) and status-code distribution charts; the diff panel overlays baseline vs. target with regression/improvement/added/removed indicators per endpoint and per schema field. Toggle table columns on/off and the selection is remembered per view.
 - **`.gg.yaml` language support** — schema-driven autocomplete/validation, plus Ctrl+Click navigation from `httpFile:` to the referenced `.http` file.
 - **Scaffolding** — generate a `.gg.yaml` config next to an existing `.http` file, or create a new `.http` test file pre-filled with the profile list.
 - **Auto-managed `gg` binary** — detects, downloads, and updates the `gg` CLI for you, with a status bar indicator and manual override via `gg.binaryPath`.
